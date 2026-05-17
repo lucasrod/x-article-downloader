@@ -1,0 +1,26 @@
+{
+  "name": "x-article-downloader",
+  "version": "0.2.0",
+  "description": "CLI para descargar articulos publicos de X a Markdown, JSON y bundles con senales sociales.",
+  "type": "module",
+  "bin": {
+    "x-article-downloader": "./src/cli.js",
+    "x-article-downloader-mcp": "./src/mcp/server.js"
+  },
+  "scripts": {
+    "download": "node ./src/cli.js",
+    "mcp": "node ./src/mcp/server.js",
+    "test:sample": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011'",
+    "test:sample:json": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format md+json",
+    "test:sample:bundle": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format bundle --chunk headings"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "playwright": "^1.60.0"
+    ,
+    "zod": "^4.1.12"
+  }
+}
