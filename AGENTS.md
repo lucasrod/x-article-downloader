@@ -34,6 +34,8 @@ Mantener una pipeline X-first:
 - `signals.provider_trace` siempre debe explicar intentos y fallos parciales.
 - Si faltan credenciales, devolver salida parcial en vez de romper la CLI.
 - `bundle` debe seguir siendo legible por humanos y util para agentes.
+- El servidor MCP actual es `stdio` y expone tools + resources.
+- Tokens esperados por defecto: `X_BEARER_TOKEN` y `XAI_API_KEY`.
 
 ## Validacion minima
 
