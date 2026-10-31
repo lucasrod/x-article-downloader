@@ -128,6 +128,7 @@ async function indexArticle(dir, slug) {
     words,
     reading_minutes: Math.max(1, Math.round(words / WORDS_PER_MINUTE)),
     image_count: document.article.images?.length ?? 0,
+    thumbnail: thumbnailUrl(slug, document.article.images?.[0]?.src),
     embed_count: document.article.embedded_posts?.length ?? 0,
     reply_count: signals?.conversation?.reply_count_collected ?? 0,
     lang: detectLanguage(contentNorm),
@@ -138,6 +139,20 @@ async function indexArticle(dir, slug) {
     contentMap,
     authorNorm: normalize(`${authorName} ${authorHandle}`),
   };
+}
+
+// Primera imagen en tamaño chico: las de X se piden con name=small; las
+// descargadas en assets/ se sirven por la ruta de archivos del articulo.
+function thumbnailUrl(slug, src) {
+  if (!src || src.startsWith("data:")) {
+    return null;
+  }
+  if (/^https?:\/\//.test(src)) {
+    const url = new URL(src);
+    if (url.hostname === "pbs.twimg.com") url.searchParams.set("name", "small");
+    return url.toString();
+  }
+  return `/api/articles/${encodeURIComponent(slug)}/files/${src.replace(/^\.\//, "")}`;
 }
 
 function blockText(block) {
@@ -190,6 +205,7 @@ function publicFields(doc) {
     words: doc.words,
     reading_minutes: doc.reading_minutes,
     image_count: doc.image_count,
+    thumbnail: doc.thumbnail,
     embed_count: doc.embed_count,
     reply_count: doc.reply_count,
     lang: doc.lang,
