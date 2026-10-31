@@ -63,11 +63,6 @@
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); margin-right: auto; min-width: 0; }
   .brand-mark { width: 28px; height: 28px; border-radius: 7px; background: var(--text); color: var(--bg); display: grid; place-items: center; font-weight: 700; flex: none; }
   .brand strong { font-size: 15px; white-space: nowrap; }
-  .variant { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-  .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-  .segmented button { border: 0; background: none; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
-  .segmented button + button { border-left: 1px solid var(--border); }
-  .segmented button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 
   .btn {
     border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 12px;
@@ -88,13 +83,9 @@
   .icon-btn:hover { background: var(--surface-2); }
 
   /* ---------- shell por variante ---------- */
-  .shell { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
-  body[data-layout="a"] .shell { grid-template-columns: 272px minmax(0, 1fr); }
-  body[data-layout="b"] .shell { grid-template-columns: 300px 256px minmax(0, 1fr); }
-  body.reading[data-layout="a"] .shell { grid-template-columns: minmax(0, 1fr); }
-  body.reading[data-layout="b"] .shell { grid-template-columns: 300px minmax(0, 1fr); }
-  body.reading .filters { display: none; }
-  body[data-layout="c"] .filters { display: none; }
+  .shell { display: grid; grid-template-columns: 272px minmax(0, 1fr); align-items: start; }
+  body.no-filters .shell { grid-template-columns: minmax(0, 1fr); }
+  body.no-filters .filters { display: none; }
 
   .side {
     position: sticky; top: var(--topbar); height: calc(100vh - var(--topbar)); overflow-y: auto;
@@ -104,17 +95,19 @@
   .side-head h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .side-close { display: none; }
 
-  /* descargas: columna fija en B, panel deslizable en A y C */
-  .downloads { display: flex; flex-direction: column; gap: 20px; }
-  body:not([data-layout="b"]) .downloads,
-  .downloads.as-drawer {
-    position: fixed; z-index: 50; top: 0; right: 0; height: 100vh; width: min(380px, 100vw);
-    border-left: 1px solid var(--border); border-right: 0; box-shadow: var(--shadow-lg);
-    transform: translateX(105%); transition: transform .2s ease; visibility: hidden;
-  }
-  body:not([data-layout="b"]) .downloads.open { transform: none; visibility: visible; }
-  body:not([data-layout="b"]) .downloads .side-close { display: inline-block; }
-  body[data-layout="b"] #open-downloads { display: none; }
+  /* pagina Agregar */
+  .add { max-width: 680px; margin: 24px auto 0; }
+  .add h1 { margin: 0 0 6px; font: 600 30px/1.2 var(--serif); }
+  .add .lead { margin: 0 0 22px; color: var(--muted); }
+  .add-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); }
+  .add-card textarea { min-height: 84px; font-size: 14px; }
+  .add-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .add-row .btn.dark { padding: 9px 18px; }
+  details.options summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  details.options[open] { flex-basis: 100%; }
+  details.options .field-grid { margin-top: 10px; }
+  .add-jobs { margin-top: 28px; }
+  .add-jobs .side-head { margin-bottom: 10px; }
 
   .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .3); }
 
@@ -131,7 +124,6 @@
   .check { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 14px; cursor: pointer; }
   .check input { margin-top: 3px; }
   .check small { display: block; color: var(--muted); font-size: 12px; }
-  .btn.submit { width: 100%; justify-content: center; margin-top: 14px; padding: 9px; }
   .form-error { color: var(--err); font-size: 13px; margin-top: 8px; }
   .jobs { display: flex; flex-direction: column; gap: 8px; }
   .job { border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; font-size: 13px; background: var(--bg); }
@@ -177,7 +169,6 @@
   /* ---------- vista biblioteca ---------- */
   main { min-width: 0; padding: 24px 32px 64px; }
   .library { max-width: 940px; }
-  body[data-layout="c"] .library { margin: 0 auto; }
   .lib-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
   .lib-title h1 { margin: 0; font: 600 26px/1.2 var(--serif); }
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -187,8 +178,7 @@
   .search-wrap kbd { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font: 11px var(--mono); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
   .search-wrap input:not(:placeholder-shown) ~ kbd { display: none; }
   .sort { width: auto; background: var(--surface); }
-  .c-only, #open-filters { display: none; }
-  body[data-layout="c"] .c-only { display: inline-flex; }
+  #open-filters { display: none; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
   .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; background: var(--accent-soft); color: var(--accent); border: 0; border-radius: 999px; padding: 3px 6px 3px 10px; cursor: pointer; }
   .chip span { font-size: 15px; line-height: 1; }
@@ -207,14 +197,6 @@
   .meta .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
   .snippet { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .no-results { padding: 40px 0; text-align: center; color: var(--muted); }
-
-  /* ---------- popover (variante C) ---------- */
-  .popover {
-    position: fixed; z-index: 45; width: 300px; max-height: min(70vh, 560px); overflow-y: auto;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 14px;
-  }
-  .popover.wide { width: 560px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
-  .popover.wide .facet:nth-child(2) { border-top: 0; padding-top: 0; }
 
   /* ---------- lector ---------- */
   .reader { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 36px; align-items: start; }
@@ -262,100 +244,39 @@
 
   /* ---------- responsive ---------- */
   @media (max-width: 1180px) {
-    /* B sin espacio para tres columnas: descargas pasa a panel, como en A */
-    body[data-layout="b"] .shell { grid-template-columns: 256px minmax(0, 1fr); }
-    body.reading[data-layout="b"] .shell { grid-template-columns: minmax(0, 1fr); }
-    body[data-layout="b"] .downloads {
-      position: fixed; z-index: 50; top: 0; right: 0; height: 100vh; width: min(380px, 100vw);
-      border-left: 1px solid var(--border); border-right: 0; box-shadow: var(--shadow-lg);
-      transform: translateX(105%); transition: transform .2s ease; visibility: hidden;
-    }
-    body[data-layout="b"] .downloads.open { transform: none; visibility: visible; }
-    body[data-layout="b"] .downloads .side-close { display: inline-block; }
-    body[data-layout="b"] #open-downloads { display: inline-flex; }
     .reader { grid-template-columns: minmax(0, 1fr); }
     .panel { position: static; }
   }
   @media (max-width: 760px) {
     .topbar { padding: 0 12px; gap: 8px; }
-    .brand strong, .variant-label { display: none; }
-    body .shell, body[data-layout] .shell { grid-template-columns: minmax(0, 1fr) !important; }
+    .shell { grid-template-columns: minmax(0, 1fr); }
     main { padding: 16px 16px 48px; }
-    body:not([data-layout="c"]) #open-filters { display: inline-flex; }
-    body:not([data-layout="c"]) .filters {
+    #open-filters { display: inline-flex; }
+    .filters {
       position: fixed; z-index: 50; top: 0; left: 0; height: 100vh; width: min(340px, 90vw);
       box-shadow: var(--shadow-lg); transform: translateX(-105%); transition: transform .2s ease; visibility: hidden;
     }
-    body:not([data-layout="c"]) .filters.open { transform: none; visibility: visible; }
+    .filters.open { transform: none; visibility: visible; }
     .filters .side-close { display: inline-block; }
     .search-wrap { flex-basis: 100%; }
     .search-wrap kbd { display: none; }
-    .popover, .popover.wide { left: 12px !important; right: 12px; width: auto; grid-template-columns: 1fr; }
-    .popover.wide .facet:nth-child(2) { border-top: 1px solid var(--border); padding-top: 10px; }
     article.doc { padding: 24px 18px; font-size: 17px; }
     article.doc h1 { font-size: 26px; }
   }
 </style>
 </head>
-<body data-layout="a">
+<body>
 <header class="topbar">
   <a class="brand" href="#/">
     <span class="brand-mark">X</span>
     <strong>Article Library</strong>
   </a>
-  <div class="variant" title="Prototipo: elegí la disposición que prefieras">
-    <span class="variant-label">Variante</span>
-    <div class="segmented" id="variant-switch">
-      <button type="button" data-layout="a" title="Facetas a la izquierda, descargas en panel">A</button>
-      <button type="button" data-layout="b" title="Descargas fijas + facetas + resultados">B</button>
-      <button type="button" data-layout="c" title="Barra de filtros arriba + Más filtros">C</button>
-    </div>
-  </div>
-  <button class="btn dark" type="button" id="open-downloads" aria-controls="downloads" aria-expanded="false">
-    Descargar <span class="count-pill" id="jobs-pill" hidden></span>
-  </button>
+  <a class="btn dark" href="#/agregar" id="add-link">
+    + Agregar <span class="count-pill" id="jobs-pill" hidden title="Descargas en curso"></span>
+  </a>
 </header>
 
 <div class="shell">
-  <aside class="side downloads" id="downloads" aria-label="Descargas">
-    <div class="side-head">
-      <h2>Descargar</h2>
-      <button class="icon-btn side-close" type="button" data-close="downloads" aria-label="Cerrar">×</button>
-    </div>
-    <form id="download-form">
-      <textarea id="urls" placeholder="https://x.com/usuario/status/123...&#10;Una URL por línea" spellcheck="false" aria-label="URLs a descargar"></textarea>
-      <div class="field-grid">
-        <label class="field">Formato
-          <select id="format">
-            <option value="bundle">bundle (md + json)</option>
-            <option value="md+json">md + json</option>
-            <option value="md">solo md</option>
-            <option value="json">solo json</option>
-          </select>
-        </label>
-        <label class="field">Imágenes
-          <select id="images">
-            <option value="embed">enlazadas</option>
-            <option value="download">descargar</option>
-          </select>
-        </label>
-      </div>
-      <label class="check">
-        <input type="checkbox" id="comments">
-        <span>Traer comentarios<small>Lee las replies visibles con el navegador. Tarda más.</small></span>
-      </label>
-      <button class="btn dark submit" type="submit">Descargar</button>
-      <div class="form-error" id="form-error" hidden></div>
-    </form>
-    <section>
-      <div class="side-head">
-        <h2>Cola</h2>
-        <button class="btn small" id="clear-jobs" type="button" hidden>Limpiar</button>
-      </div>
-      <div class="jobs" id="jobs"><div class="empty">Nada en curso.</div></div>
-    </section>
-  </aside>
-
   <aside class="side filters" id="filters" aria-label="Filtros">
     <div class="side-head">
       <h2>Filtros</h2>
@@ -379,9 +300,6 @@
           <kbd>/</kbd>
         </div>
         <button class="btn" type="button" id="open-filters" aria-controls="filters" aria-expanded="false">Filtros <span class="count-pill" data-active-count hidden></span></button>
-        <button class="btn c-only" type="button" data-popover="author" aria-expanded="false">Autor <span class="count-pill" data-facet-count="author" hidden></span> ▾</button>
-        <button class="btn c-only" type="button" data-popover="pub" aria-expanded="false">Publicación <span class="count-pill" data-facet-count="pub" hidden></span> ▾</button>
-        <button class="btn c-only" type="button" data-popover="more" aria-expanded="false">Más filtros <span class="count-pill" data-facet-count="more" hidden></span> ▾</button>
         <select class="sort" id="sort" aria-label="Ordenar">
           <option value="relevance">Relevancia</option>
           <option value="newest">Publicación: más nuevos</option>
@@ -397,11 +315,51 @@
       <ul class="results" id="results"></ul>
     </section>
     <section id="reader-view" hidden></section>
+    <section class="add" id="add-view" hidden>
+      <h1>Agregar artículos</h1>
+      <p class="lead">Pegá la URL del post de X que contiene el Article. Cuando termine la ingesta se abre el artículo, ya dentro de la biblioteca.</p>
+      <form class="add-card" id="download-form">
+        <textarea id="urls" placeholder="https://x.com/usuario/status/123…&#10;Podés pegar varias, una por línea" spellcheck="false" aria-label="URLs de X"></textarea>
+        <div class="add-row">
+          <details class="options">
+            <summary>Opciones</summary>
+            <div class="field-grid">
+              <label class="field">Formato
+                <select id="format">
+                  <option value="bundle">bundle (md + json)</option>
+                  <option value="md+json">md + json</option>
+                  <option value="md">solo md</option>
+                  <option value="json">solo json</option>
+                </select>
+              </label>
+              <label class="field">Imágenes
+                <select id="images">
+                  <option value="embed">enlazadas</option>
+                  <option value="download">descargar</option>
+                </select>
+              </label>
+            </div>
+            <label class="check">
+              <input type="checkbox" id="comments">
+              <span>Traer comentarios<small>Lee las replies visibles con el navegador. Tarda más.</small></span>
+            </label>
+          </details>
+          <button class="btn dark" type="submit">Agregar a la biblioteca</button>
+        </div>
+        <div class="form-error" id="form-error" hidden></div>
+      </form>
+      <section class="add-jobs">
+        <div class="side-head">
+          <h2>En curso y recientes</h2>
+          <button class="btn small" id="clear-jobs" type="button" hidden>Limpiar terminados</button>
+        </div>
+        <div class="jobs" id="jobs"><div class="empty">Nada en curso.</div></div>
+      </section>
+    </section>
   </main>
 </div>
 
 <div class="scrim" id="scrim" hidden></div>
-<div class="popover" id="popover" role="dialog" hidden></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -425,7 +383,6 @@ const state = {
   open: new Set(["author", "pub"]),
   authorFilter: "",
   authorExpanded: false,
-  popover: null,
   lastLibraryHash: "#/",
   request: null,
 };
@@ -481,29 +438,6 @@ async function api(url, init) {
 
 const fileUrl = (slug, file, download = false) =>
   `/api/articles/${encodeURIComponent(slug)}/files/${file.split("/").map(encodeURIComponent).join("/")}${download ? "?download" : ""}`;
-
-// ---------- variante de layout (prototipo) ----------
-
-function readLayout() {
-  const fromUrl = new URLSearchParams(location.search).get("layout");
-  if (["a", "b", "c"].includes(fromUrl)) return fromUrl;
-  try { return localStorage.getItem("library-layout") || "a"; } catch { return "a"; }
-}
-
-function setLayout(layout) {
-  document.body.dataset.layout = layout;
-  for (const button of $("variant-switch").querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset.layout === layout));
-  }
-  try { localStorage.setItem("library-layout", layout); } catch {}
-  closeOverlays();
-  renderFacets();
-}
-
-$("variant-switch").addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-layout]");
-  if (button) setLayout(button.dataset.layout);
-});
 
 // ---------- estado en la URL ----------
 
@@ -622,7 +556,6 @@ function renderLibrary(params) {
     pill.hidden = active === 0;
   }
   $("filters-clear").hidden = active === 0;
-  updatePopoverButtons(params);
   renderChips(params);
   renderFacets();
 
@@ -694,7 +627,7 @@ function renderChips(params) {
 function facetHtml(facet, params) {
   const data = state.data.facets[facet.key];
   const activeCount = activeFilterCount(params, [facet.key]);
-  const open = state.open.has(facet.key) || activeCount > 0 || state.popover;
+  const open = state.open.has(facet.key) || activeCount > 0;
   const body = facet.kind === "date" ? dateFacetBody(facet.key, data, params) : multiFacetBody(facet.key, data, params);
   return `<section class="facet" data-facet-group="${facet.key}">
     <button class="facet-toggle" type="button" data-toggle-facet="${facet.key}" aria-expanded="${open}">
@@ -741,7 +674,7 @@ function multiFacetBody(key, options, params) {
 
 function dateFacetBody(key, presets, params) {
   const current = params.get(key) || "";
-  const name = `date-${key}-${state.popover ? "pop" : "side"}`;
+  const name = `date-${key}`;
   const radios = [{ value: "", label: "Cualquier fecha", count: null }, ...presets.map((preset) => ({ ...preset, label: DATE_LABELS[preset.value] }))]
     .map((option) => `<label class="opt ${option.count === 0 && current !== option.value ? "zero" : ""}">
       <input type="radio" name="${name}" data-date="${key}" value="${option.value}" ${current === option.value && !params.get(`${key}_from`) && !params.get(`${key}_to`) ? "checked" : ""}>
@@ -759,49 +692,13 @@ function renderFacets() {
   const params = currentParams();
   const restoreAuthorFocus = document.activeElement?.matches?.("[data-author-search]");
 
-  $("facet-groups").innerHTML = state.popover ? "" : FACETS.map((facet) => facetHtml(facet, params)).join("");
-  if (state.popover) renderPopover(params);
+  $("facet-groups").innerHTML = FACETS.map((facet) => facetHtml(facet, params)).join("");
 
   if (restoreAuthorFocus) {
     const input = document.querySelector("[data-author-search]");
     input?.focus();
     input?.setSelectionRange(input.value.length, input.value.length);
   }
-}
-
-// ---------- popovers (variante C) ----------
-
-const POPOVER_FACETS = { author: ["author"], pub: ["pub"], more: ["len", "lang", "has", "dl"] };
-
-function updatePopoverButtons(params) {
-  for (const [name, keys] of Object.entries(POPOVER_FACETS)) {
-    const pill = document.querySelector(`[data-facet-count="${name}"]`);
-    const count = activeFilterCount(params, keys);
-    pill.textContent = count;
-    pill.hidden = count === 0;
-  }
-}
-
-function openPopover(name, button) {
-  if (state.popover === name) return closeOverlays();
-  closeOverlays();
-  state.popover = name;
-  state.popoverButton = button;
-  button.setAttribute("aria-expanded", "true");
-  const popover = $("popover");
-  popover.className = `popover${name === "more" ? " wide" : ""}`;
-  popover.hidden = false;
-  renderFacets();
-  const rect = button.getBoundingClientRect();
-  const width = popover.offsetWidth;
-  popover.style.top = `${rect.bottom + 6}px`;
-  popover.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
-  popover.querySelector("input")?.focus();
-}
-
-function renderPopover(params) {
-  const facets = FACETS.filter((facet) => POPOVER_FACETS[state.popover].includes(facet.key));
-  $("popover").innerHTML = facets.map((facet) => facetHtml(facet, params)).join("");
 }
 
 // ---------- paneles ----------
@@ -817,27 +714,16 @@ function openDrawer(id, button) {
 
 function closeOverlays() {
   let returnFocus = null;
-  for (const id of ["downloads", "filters"]) {
-    if ($(id).classList.contains("open")) {
-      $(id).classList.remove("open");
-      returnFocus = state.drawerButton;
-    }
+  if ($("filters").classList.contains("open")) {
+    $("filters").classList.remove("open");
+    returnFocus = state.drawerButton;
   }
   $("scrim").hidden = true;
-  $("open-downloads").setAttribute("aria-expanded", "false");
   $("open-filters").setAttribute("aria-expanded", "false");
 
-  if (state.popover) {
-    state.popover = null;
-    $("popover").hidden = true;
-    state.popoverButton?.setAttribute("aria-expanded", "false");
-    returnFocus = state.popoverButton;
-    renderFacets();
-  }
   returnFocus?.focus();
 }
 
-$("open-downloads").addEventListener("click", (event) => openDrawer("downloads", event.currentTarget));
 $("open-filters").addEventListener("click", (event) => openDrawer("filters", event.currentTarget));
 $("scrim").addEventListener("click", closeOverlays);
 
@@ -845,11 +731,6 @@ $("scrim").addEventListener("click", closeOverlays);
 
 document.addEventListener("click", (event) => {
   const target = event.target;
-  const popoverButton = target.closest("[data-popover]");
-  if (popoverButton) return openPopover(popoverButton.dataset.popover, popoverButton);
-
-  if (state.popover && !target.closest("#popover")) closeOverlays();
-
   const close = target.closest("[data-close]");
   if (close) return closeOverlays();
 
@@ -893,14 +774,14 @@ document.addEventListener("input", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") return closeOverlays();
   const typing = event.target.closest("input, textarea, select, [contenteditable]");
-  if (event.key === "/" && !typing && !document.body.classList.contains("reading")) {
+  if (event.key === "/" && !typing && lastView === "library") {
     event.preventDefault();
     $("search").focus();
     $("search").select();
   }
 });
 
-// ---------- descargas y cola ----------
+// ---------- agregar y cola ----------
 
 $("download-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -908,7 +789,9 @@ $("download-form").addEventListener("submit", async (event) => {
   errorBox.hidden = true;
   const urls = $("urls").value.split(/\s+/).filter(Boolean);
   try {
-    await enqueue(urls, { format: $("format").value, images: $("images").value, comments: $("comments").checked });
+    const jobs = await enqueue(urls, { format: $("format").value, images: $("images").value, comments: $("comments").checked });
+    // Con una sola URL abrimos el articulo apenas termina la ingesta.
+    state.openWhenDone = jobs.length === 1 ? jobs[0].id : null;
     $("urls").value = "";
   } catch (error) {
     errorBox.textContent = error.message;
@@ -923,6 +806,7 @@ async function enqueue(urls, options) {
     body: JSON.stringify({ urls, options }),
   });
   toast(jobs.length === 1 ? "Descarga en cola" : `${jobs.length} descargas en cola`);
+  return jobs;
 }
 
 $("clear-jobs").addEventListener("click", () => api("/api/jobs", { method: "DELETE" }));
@@ -950,9 +834,12 @@ function renderJobs() {
       if (parts.length) detail = `<div class="job-detail">${escapeHtml(parts.join(" · "))}</div>`;
     }
     const title = job.title
-      ? `<a class="job-title" href="#/a/${encodeURIComponent(job.slug)}">${escapeHtml(job.title)}</a>`
+      ? `<span class="job-title">${escapeHtml(job.title)}</span>`
       : `<div class="job-url">${escapeHtml(job.url.replace(/^https:\/\//, ""))}</div>`;
-    return `<div class="job"><div class="job-head">${title}<span class="badge ${job.status}">${STATUS_LABELS[job.status]}</span></div>${detail}</div>`;
+    const status = job.status === "done"
+      ? `<a class="btn small" href="#/a/${encodeURIComponent(job.slug)}">Abrir</a>`
+      : `<span class="badge ${job.status}">${STATUS_LABELS[job.status]}</span>`;
+    return `<div class="job"><div class="job-head">${title}${status}</div>${detail}</div>`;
   }).join("");
 }
 
@@ -965,6 +852,12 @@ function connectEvents() {
 
     const finished = state.jobs.filter((job) => job.status === "done" && previous.has(job.id) && previous.get(job.id) !== "done");
     if (finished.length === 0) return;
+    const opened = finished.find((job) => job.id === state.openWhenDone);
+    if (opened && lastView === "add") {
+      state.openWhenDone = null;
+      location.hash = `#/a/${encodeURIComponent(opened.slug)}`;
+      return;
+    }
     const slug = currentSlug();
     if (!slug) loadLibrary();
     else if (finished.some((job) => job.slug === slug)) renderReader(slug);
@@ -1104,12 +997,20 @@ function currentSlug() {
 let lastView = null;
 function route() {
   const slug = currentSlug();
+  const view = slug ? "reader" : location.hash === "#/agregar" ? "add" : "library";
   // Los filtros cambian el hash; solo cerramos paneles al pasar de vista.
-  if (Boolean(slug) !== (lastView === "reader")) closeOverlays();
-  document.body.classList.toggle("reading", Boolean(slug));
-  $("library-view").hidden = Boolean(slug);
-  $("reader-view").hidden = !slug;
+  if (view !== lastView) closeOverlays();
+  document.body.classList.toggle("no-filters", view !== "library");
+  $("library-view").hidden = view !== "library";
+  $("reader-view").hidden = view !== "reader";
+  $("add-view").hidden = view !== "add";
 
+  if (view === "add") {
+    window.scrollTo(0, 0);
+    lastView = "add";
+    $("urls").focus();
+    return;
+  }
   if (slug) {
     window.scrollTo(0, 0);
     lastView = "reader";
@@ -1127,7 +1028,6 @@ window.addEventListener("scroll", () => {
   if (lastView === "library") state.libraryScroll = window.scrollY;
 }, { passive: true });
 
-setLayout(readLayout());
 connectEvents();
 route();
 </script>
