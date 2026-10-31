@@ -1,5 +1,6 @@
 import { extractArticle } from "../core/extract.js";
 import { inferEngagementVelocityBucket, inferViralStage, pickEnv } from "../core/utils.js";
+import { collectBrowserCommentSignals } from "./browser-comments.js";
 import { collectGrokAwareness } from "./grok.js";
 import { collectXApiSignals } from "./x-api.js";
 
@@ -74,6 +75,23 @@ export async function collectSignals(documentOrUrl, options) {
     signalPack.provider_trace.failures.push(...xApi.trace.failures);
     mergeSignals(signalPack, xApi.patch);
     signalPack.evidence_items.push(...xApi.evidenceItems);
+  }
+
+  if (
+    options.repliesMode === "best-effort"
+    && (options.xProvider === "browser" || options.xProvider === "hybrid")
+  ) {
+    const browserComments = await collectBrowserCommentSignals(document, {
+      repliesMode: options.repliesMode,
+      storageState: options.browserStorageState,
+      cdpEndpoint: options.browserCdpEndpoint,
+      timeout: options.timeout ?? 120000,
+      limit: options.replyLimit ?? 12,
+    });
+    signalPack.provider_trace.attempts.push(browserComments.trace);
+    signalPack.provider_trace.failures.push(...browserComments.trace.failures);
+    mergeSignals(signalPack, browserComments.patch);
+    signalPack.evidence_items.push(...browserComments.evidenceItems);
   }
 
   if (options.signalsMode === "x-full" && (options.xProvider === "grok" || options.xProvider === "hybrid")) {

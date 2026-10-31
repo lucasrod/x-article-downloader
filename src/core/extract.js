@@ -2,18 +2,32 @@ import { chromium } from "playwright";
 import { createArticleDocument } from "./article-schema.js";
 import { extractStatusId, slugify } from "./utils.js";
 
-export async function extractArticle(url, timeout) {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({
-    viewport: { width: 1440, height: 2400 },
-  });
+export async function extractArticle(url, timeout, options = {}) {
+  const browser = options.cdpEndpoint
+    ? await chromium.connectOverCDP(options.cdpEndpoint)
+    : await chromium.launch({ headless: true });
+  const context = options.cdpEndpoint
+    ? browser.contexts()[0] ?? await browser.newContext()
+    : await browser.newContext({
+        viewport: { width: 1440, height: 2400 },
+        storageState: options.storageState || undefined,
+      });
+  const page = await context.newPage();
+
+  await page.setViewportSize({ width: 1440, height: 2400 });
 
   try {
+    let blockedStatus = null;
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      await page.goto(url, {
+      const response = await page.goto(url, {
         waitUntil: "domcontentloaded",
         timeout,
       });
+      // X responde 403 con body vacio a navegadores que detecta como automatizados.
+      if (response && (response.status() === 403 || response.status() === 429)) {
+        blockedStatus = response.status();
+        break;
+      }
       await page.waitForTimeout(5000 + attempt * 1500);
 
       try {
@@ -37,7 +51,55 @@ export async function extractArticle(url, timeout) {
 
       await page.waitForTimeout(1000);
 
-      const article = await page.evaluate(() => {
+      let article = await extractArticleFromCurrentPage(page);
+      if (!article) {
+        const articleUrl = await findArticleUrl(page);
+        if (articleUrl) {
+          await page.goto(articleUrl, {
+            waitUntil: "domcontentloaded",
+            timeout,
+          });
+          await page.waitForTimeout(5000 + attempt * 1500);
+          article = await extractArticleFromCurrentPage(page);
+        }
+      }
+
+      if (article) {
+        return createArticleDocument({
+          sourceUrl: url,
+          statusId: extractStatusId(url),
+          authorHandle: article.authorHandle,
+          authorName: article.authorName,
+          fetchedAt: new Date().toISOString(),
+          title: article.title,
+          slug: slugify(article.title),
+          blocks: article.blocks,
+        });
+      }
+    }
+
+    if (blockedStatus) {
+      throw new Error(
+        `X rechazo la carga con HTTP ${blockedStatus}: bloquea el Chromium headless. `
+        + "Usa tu navegador real abierto con --remote-debugging-port=9222 y pasa "
+        + "--browser-cdp-endpoint http://127.0.0.1:9222 (o X_BROWSER_CDP_ENDPOINT).",
+      );
+    }
+    throw new Error("No pude encontrar un Article en esa URL. Usa la URL publica del status que contiene el articulo.");
+  } finally {
+    await browser.close();
+  }
+}
+
+async function findArticleUrl(page) {
+  return page.evaluate(() => {
+    const link = document.querySelector('a[href*="/i/article/"], a[href*="/article/"]');
+    return link?.href ?? null;
+  });
+}
+
+async function extractArticleFromCurrentPage(page) {
+  return page.evaluate(() => {
         const rootArticle = document.querySelector('article[data-testid="tweet"]');
         const titleNode = rootArticle?.querySelector('[data-testid="twitter-article-title"]');
         const contentNode = rootArticle?.querySelector('div[data-contents="true"]');
@@ -236,23 +298,4 @@ export async function extractArticle(url, timeout) {
           .trim();
         }
       });
-
-      if (article) {
-        return createArticleDocument({
-          sourceUrl: article.sourceUrl,
-          statusId: extractStatusId(article.sourceUrl),
-          authorHandle: article.authorHandle,
-          authorName: article.authorName,
-          fetchedAt: new Date().toISOString(),
-          title: article.title,
-          slug: slugify(article.title),
-          blocks: article.blocks,
-        });
-      }
-    }
-
-    throw new Error("No pude encontrar un Article en esa URL. Usa la URL publica del status que contiene el articulo.");
-  } finally {
-    await browser.close();
-  }
 }

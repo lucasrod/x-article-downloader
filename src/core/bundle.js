@@ -13,10 +13,27 @@ export async function writeBundle({
   await fs.mkdir(outputPlan.bundleDir, { recursive: true });
   await writeTextFile(outputPlan.markdownPath, markdown);
   await writeTextFile(outputPlan.jsonPath, jsonText);
-  await writeTextFile(outputPlan.signalsPath, signalsText);
-  await writeTextFile(outputPlan.briefPath, briefMarkdown ?? "");
-  await writeTextFile(outputPlan.evidencePath, evidenceJsonl ?? "");
+  // Sin signals nuevas no pisamos las de una descarga anterior (p. ej. comentarios ya recolectados).
+  if (signalsText != null) {
+    await writeTextFile(outputPlan.signalsPath, signalsText);
+  }
+  if (hasContent(briefMarkdown)) {
+    await writeTextFile(outputPlan.briefPath, briefMarkdown);
+  } else if (signalsText != null) {
+    await fs.rm(outputPlan.briefPath, { force: true });
+  }
+  if (hasContent(evidenceJsonl)) {
+    await writeTextFile(outputPlan.evidencePath, evidenceJsonl);
+  } else if (signalsText != null) {
+    await fs.rm(outputPlan.evidencePath, { force: true });
+  }
   if (chunksJsonl != null) {
     await writeTextFile(outputPlan.chunksPath, chunksJsonl);
+  } else {
+    await fs.rm(outputPlan.chunksPath, { force: true });
   }
+}
+
+function hasContent(value) {
+  return String(value ?? "").trim().length > 0;
 }

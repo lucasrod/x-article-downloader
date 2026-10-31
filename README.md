@@ -48,7 +48,42 @@ Eso equivale a:
 - `--format md`
 - `--images embed`
 - `--embedded-posts quote`
-- salida en `./tmp/<slug>-remote-images.md`
+- salida en `./downloads/articles/<slug>/article.md`
+
+## Interfaz web
+
+```bash
+npm run web
+```
+
+Levanta un servidor local en `http://127.0.0.1:4173` (cambiar con `PORT=...`) con:
+
+- formulario para pegar una o varias URLs de status (se descargan en cola, de a una)
+- progreso en vivo de cada descarga
+- biblioteca de todo lo que hay en `./downloads/articles/`
+- lector del articulo con metricas, comentarios, temas recurrentes y archivos generados
+- boton para volver a descargar un articulo con comentarios
+
+Por defecto la web descarga en formato `bundle`, para que el lector tenga `article.json` y `signals.json`.
+Usa las mismas env vars que la CLI para la sesion de X: `X_BROWSER_STORAGE_STATE` o `X_BROWSER_CDP_ENDPOINT`.
+
+### Si X responde 403
+
+X bloquea el Chromium headless de Playwright (responde `403` con body vacio), aunque haya `storageState` valido. En ese caso usa tu navegador real via CDP:
+
+```bash
+"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \
+  --remote-debugging-port=9222 \
+  --user-data-dir="$PWD/tmp/.auth/x-brave-cdp-profile"
+```
+
+Logueate en X en esa ventana una vez y despues:
+
+```bash
+X_BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222 npm run web
+```
+
+El servidor solo escucha en `127.0.0.1` y rechaza requests con otro `Host`/`Origin`, porque usa tu sesion local de X.
 
 ## Formatos
 
@@ -60,13 +95,15 @@ Eso equivale a:
 
 Defaults de salida:
 
-- `md` -> `./tmp/<slug>-remote-images.md`
-- `json` -> `./tmp/<slug>-remote-images.json`
+- `md` -> `./downloads/articles/<slug>/article.md`
+- `json` -> `./downloads/articles/<slug>/article.json`
 - `md+json` -> `.md` + `.json` hermanos
-- `jsonl` -> `./tmp/<slug>-remote-images.jsonl`
-- `bundle` -> `./tmp/<slug>-remote-images.bundle/`
+- `jsonl` -> `./downloads/articles/<slug>/article.jsonl`
+- `bundle` -> `./downloads/articles/<slug>/`
 
-Con `--images download`, el sufijo por defecto pasa a `-local-images`.
+Con `--images download`, las imagenes quedan en `./downloads/articles/<slug>/assets/`.
+
+El Markdown incluye `Fuente:` y `Snapshot:`. La fecha canonica tambien queda en `source.fetched_at` dentro de `article.json`.
 
 ## Flags
 
@@ -77,7 +114,8 @@ Con `--images download`, el sufijo por defecto pasa a `-local-images`.
 --embedded-posts <quote|link|omit>
 --assets-dir <ruta>
 --signals <none|x-basic|x-full>
---x-provider <x-api|grok|hybrid>
+--comments
+--x-provider <browser|x-api|grok|hybrid>
 --x-replies <none|api|best-effort>
 --x-quotes <none|api>
 --brief <none|short|full>
@@ -114,9 +152,10 @@ Bundle listo para agentes / RAG:
 ```bash
 node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' \
   --format bundle \
-  --images download \
-  --chunk headings
+  --images download
 ```
+
+Si necesitas chunks JSONL para RAG, agregá `--chunk headings`.
 
 Signals X-first:
 
@@ -138,9 +177,14 @@ node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' \
 
 - `x-basic`: intenta traer metricas y estructura base.
 - `x-full`: agrega awareness, evidencia y brief opcional.
+- `browser`: usa Playwright/sesion local para leer replies visibles debajo del status. No requiere X API.
 - `x-api`: pensado para metricas exactas.
 - `grok`: pensado para awareness/sintesis.
 - `hybrid`: usa ambos si hay credenciales.
+- `--comments`: alias de producto para traer replies/comentarios visibles via browser. Equivale a activar `--signals x-basic --x-provider browser --x-replies best-effort`, salvo que pases valores mas especificos.
+- Si pasas `--x-replies` o `--x-quotes` sin `--signals`, la CLI activa `x-basic` para poder recolectarlos.
+
+Los comentarios no se inyectan en el Markdown. La verdad base sigue siendo el documento normalizado: quedan en `signals.conversation.top_replies`, `signals.conversation.recurring_themes` y `signals.evidence_items` / `evidence.jsonl`.
 
 Env vars por defecto:
 
@@ -231,7 +275,7 @@ Comandos para verificarlo:
 ```bash
 node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011'
 node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format md+json
-node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format bundle --images download --chunk headings
+node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format bundle --images download
 node ./src/mcp/server.js
 ```
 
@@ -259,6 +303,15 @@ Resultado esperado:
 - `--x-replies api`
 - `--x-quotes api`
 - MCP: `signals.enrich_x` con `x_provider=x-api`
+
+No lo necesitas para el camino default de comentarios. Para eso usa:
+
+```bash
+node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' \
+  --format bundle \
+  --comments \
+  --browser-storage-state tmp/.auth/x-storage-state.json
+```
 
 Comando de prueba:
 
@@ -397,8 +450,8 @@ Notas practicas:
 - `article.md`
 - `article.json`
 - `signals.json`
-- `brief.md`
-- `evidence.jsonl`
+- `brief.md` cuando `--brief short|full`
+- `evidence.jsonl` cuando hay evidencia social
 - `article.chunks.jsonl` cuando `--chunk headings`
 - `assets/` cuando `--images download`
 

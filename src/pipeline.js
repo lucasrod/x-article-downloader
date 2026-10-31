@@ -1,11 +1,42 @@
+import path from "node:path";
 import { buildSocialBrief } from "./core/brief.js";
 import { writeBundle } from "./core/bundle.js";
+import { extractArticle } from "./core/extract.js";
 import { createImageResolver, materializeDocumentAssets } from "./core/images.js";
-import { deriveOutputPlan, finalizeDocument, writeTextFile } from "./core/output.js";
+import {
+  defaultAssetsDir,
+  defaultOutputPath,
+  deriveOutputPlan,
+  finalizeDocument,
+  writeTextFile,
+} from "./core/output.js";
 import { renderJson } from "./core/render-json.js";
 import { renderEvidenceJsonl, renderJsonl } from "./core/render-jsonl.js";
 import { renderMarkdown } from "./core/render-markdown.js";
 import { collectSignals } from "./providers/signals.js";
+
+export async function downloadArticle(options, onStage = () => {}) {
+  onStage("extract");
+  const article = await extractArticle(options.url, options.timeout, {
+    storageState: options.browserStorageState,
+    cdpEndpoint: options.browserCdpEndpoint,
+  });
+  const outputPath = path.resolve(options.output ?? defaultOutputPath(article, options.format, options.images));
+  const assetsDir = options.images === "download"
+    ? path.resolve(options.assetsDir ?? defaultAssetsDir(outputPath, options.format))
+    : null;
+
+  onStage(options.signals === "none" ? "render" : "signals");
+  const prepared = await prepareDocument(article, {
+    ...options,
+    outputPath,
+    assetsDir,
+  });
+
+  onStage("write");
+  await writePreparedOutput(prepared);
+  return { prepared, assetsDir };
+}
 
 export async function prepareDocument(document, options) {
   const outputPlan = deriveOutputPlan(options.outputPath, options.format);
@@ -24,6 +55,8 @@ export async function prepareDocument(document, options) {
     quotesMode: options.xQuotes,
     bearerTokenEnv: options.bearerTokenEnv,
     grokApiKeyEnv: options.grokApiKeyEnv,
+    browserStorageState: options.browserStorageState,
+    browserCdpEndpoint: options.browserCdpEndpoint,
     timeout: options.timeout,
   });
 
@@ -68,7 +101,9 @@ export async function writePreparedOutput(prepared) {
       outputPlan: prepared.outputPlan,
       markdown: prepared.markdown,
       jsonText: prepared.jsonText,
-      signalsText: `${JSON.stringify(prepared.document.signals, null, 2)}\n`,
+      signalsText: prepared.document.signals
+        ? `${JSON.stringify(prepared.document.signals, null, 2)}\n`
+        : null,
       briefMarkdown: prepared.briefMarkdown,
       evidenceJsonl: prepared.evidenceJsonl,
       chunksJsonl: prepared.chunksJsonl,

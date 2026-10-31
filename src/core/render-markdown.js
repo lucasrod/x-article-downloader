@@ -10,6 +10,9 @@ export async function renderMarkdown(document, options) {
 
   lines.push("");
   lines.push(`Fuente: ${document.source.status_url}`);
+  if (document.source.fetched_at) {
+    lines.push(`Snapshot: ${document.source.fetched_at}`);
+  }
 
   for (const block of document.article.blocks) {
     const rendered = renderBlock(block, options);

@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>X Article Downloader</title>
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --surface: #ffffff;
+    --surface-2: #efede7;
+    --border: #dedad0;
+    --text: #1d1c19;
+    --muted: #6b675e;
+    --accent: #1d5bd8;
+    --accent-soft: #e3ebfb;
+    --ok: #2f7a3f;
+    --ok-soft: #e2f1e4;
+    --warn: #9a6200;
+    --warn-soft: #f8edd6;
+    --err: #b3261e;
+    --err-soft: #f9e1df;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 4px 16px rgba(0, 0, 0, .04);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151513;
+      --surface: #1d1d1a;
+      --surface-2: #262622;
+      --border: #34332e;
+      --text: #ebe8e0;
+      --muted: #9b978c;
+      --accent: #7ea6ff;
+      --accent-soft: #1f2a44;
+      --ok: #7fcf8d;
+      --ok-soft: #1d2e21;
+      --warn: #e8b55c;
+      --warn-soft: #33281a;
+      --err: #ff8a80;
+      --err-soft: #3a1f1d;
+      --shadow: none;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151513; --surface: #1d1d1a; --surface-2: #262622; --border: #34332e;
+    --text: #ebe8e0; --muted: #9b978c; --accent: #7ea6ff; --accent-soft: #1f2a44;
+    --ok: #7fcf8d; --ok-soft: #1d2e21; --warn: #e8b55c; --warn-soft: #33281a;
+    --err: #ff8a80; --err-soft: #3a1f1d; --shadow: none; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 var(--sans);
+  }
+  a { color: var(--accent); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+
+  .app {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+  aside {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  main { padding: 28px 36px 64px; min-width: 0; }
+
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--text); color: var(--bg);
+    display: grid; place-items: center; font-weight: 700;
+  }
+  .brand strong { display: block; font-size: 15px; }
+  .brand span { display: block; font-size: 12px; color: var(--muted); }
+
+  h2.section {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 0 0 10px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+
+  textarea {
+    width: 100%; min-height: 96px; resize: vertical;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); padding: 10px; font: 13px/1.45 var(--mono);
+  }
+  textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  select, input[type="search"] {
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); padding: 7px 9px; font-size: 14px; width: 100%;
+  }
+  .check { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 14px; cursor: pointer; }
+  .check input { margin-top: 3px; }
+  .check small { display: block; color: var(--muted); font-size: 12px; }
+
+  .btn {
+    border: 1px solid var(--border); background: var(--surface);
+    border-radius: 8px; padding: 7px 12px; cursor: pointer;
+    font-size: 14px; display: inline-flex; align-items: center; gap: 6px;
+    text-decoration: none; color: var(--text);
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); width: 100%; justify-content: center; margin-top: 14px; padding: 9px; font-weight: 600; }
+  .btn.primary:hover { opacity: .9; }
+  .btn.small { padding: 3px 8px; font-size: 12px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .form-error { color: var(--err); font-size: 13px; margin-top: 8px; }
+
+  .jobs { display: flex; flex-direction: column; gap: 8px; }
+  .job {
+    border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px;
+    font-size: 13px; background: var(--bg);
+  }
+  .job-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .job-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-url { color: var(--muted); font: 11px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-detail { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .job-detail.err { color: var(--err); }
+  .badge {
+    font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px; white-space: nowrap;
+    background: var(--surface-2); color: var(--muted);
+  }
+  .badge.running { background: var(--accent-soft); color: var(--accent); }
+  .badge.done { background: var(--ok-soft); color: var(--ok); }
+  .badge.error { background: var(--err-soft); color: var(--err); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .spinner {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid currentColor; border-right-color: transparent;
+    display: inline-block; animation: spin .8s linear infinite; vertical-align: -1px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Biblioteca */
+  .lib-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .lib-head h1 { margin: 0; font: 600 26px/1.2 var(--serif); }
+  .lib-head p { margin: 4px 0 0; color: var(--muted); }
+  .lib-head input { max-width: 300px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; text-decoration: none; color: var(--text); box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 8px; transition: border-color .15s;
+  }
+  .card:hover { border-color: var(--muted); }
+  .card h3 { margin: 0; font: 600 17px/1.3 var(--serif); }
+  .card .by { color: var(--muted); font-size: 13px; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 4px; }
+
+  /* Lector */
+  .reader { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 36px; align-items: start; }
+  .back { display: inline-block; margin-bottom: 18px; font-size: 14px; text-decoration: none; }
+  article.doc {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 40px 48px; box-shadow: var(--shadow);
+    font: 18px/1.65 var(--serif); max-width: 760px;
+  }
+  article.doc h1 { font-size: 32px; line-height: 1.2; margin: 0 0 8px; }
+  article.doc .byline { font: 14px var(--sans); color: var(--muted); margin-bottom: 28px; }
+  article.doc h2, article.doc h3, article.doc h4 { line-height: 1.3; margin: 1.6em 0 .5em; }
+  article.doc p { margin: 0 0 1em; }
+  article.doc img { max-width: 100%; border-radius: 8px; display: block; margin: 1.2em auto; }
+  article.doc blockquote { margin: 1em 0; padding: 2px 0 2px 18px; border-left: 3px solid var(--border); color: var(--muted); }
+  article.doc pre { background: var(--surface-2); padding: 14px; border-radius: 8px; overflow-x: auto; font: 13px/1.5 var(--mono); }
+  article.doc code { font: .85em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+  article.doc pre code { background: none; padding: 0; }
+  article.doc hr { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
+  .embed {
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 1.2em 0;
+    font: 14px/1.5 var(--sans); background: var(--bg);
+  }
+  .embed .who { font-weight: 600; }
+  .embed .who span { color: var(--muted); font-weight: 400; }
+  .embed p { white-space: pre-line; margin: 6px 0 !important; }
+  pre.raw { white-space: pre-wrap; font: 14px/1.55 var(--mono); background: none; padding: 0; }
+
+  .panel { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .box h2.section { margin-bottom: 12px; }
+  .actions { display: flex; flex-direction: column; gap: 8px; }
+  .actions .btn { justify-content: center; }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric strong { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .metric span { font-size: 12px; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; background: var(--surface-2); border-radius: 999px; padding: 2px 9px; }
+  .reply { border-top: 1px solid var(--border); padding: 10px 0; font-size: 13px; }
+  .reply:first-of-type { border-top: 0; padding-top: 0; }
+  .reply .who { font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+  .reply .who a { font-weight: 400; font-size: 12px; text-decoration: none; }
+  .reply p { margin: 4px 0 0; white-space: pre-line; }
+  .reply .views { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .files { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .files li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; }
+  .files code { font: 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .failures { font-size: 12px; color: var(--warn); margin: 0; padding-left: 16px; }
+  .summary { font-size: 13px; margin: 0 0 10px; color: var(--muted); }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px;
+    opacity: 0; transition: opacity .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 1100px) {
+    .reader { grid-template-columns: minmax(0, 1fr); }
+    .panel { position: static; }
+  }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 16px; }
+    main { padding: 20px 16px 48px; }
+    article.doc { padding: 24px 18px; font-size: 17px; }
+    article.doc h1 { font-size: 26px; }
+    .lib-head input { max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <a class="brand" href="#/">
+      <div class="brand-mark">X</div>
+      <div><strong>Article Downloader</strong><span>Biblioteca local de Articles de X</span></div>
+    </a>
+
+    <form id="download-form">
+      <h2 class="section">Descargar</h2>
+      <textarea id="urls" placeholder="https://x.com/usuario/status/123...&#10;Una URL por línea" spellcheck="false"></textarea>
+      <div class="field-grid">
+        <label class="field">Formato
+          <select id="format">
+            <option value="bundle">bundle (md + json)</option>
+            <option value="md+json">md + json</option>
+            <option value="md">solo md</option>
+            <option value="json">solo json</option>
+          </select>
+        </label>
+        <label class="field">Imágenes
+          <select id="images">
+            <option value="embed">enlazadas</option>
+            <option value="download">descargar</option>
+          </select>
+        </label>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="comments">
+        <span>Traer comentarios<small>Lee las replies visibles con el navegador. Tarda más.</small></span>
+      </label>
+      <button class="btn primary" type="submit" id="submit">Descargar</button>
+      <div class="form-error" id="form-error" hidden></div>
+    </form>
+
+    <section>
+      <h2 class="section">Cola <button class="btn small" id="clear-jobs" type="button" hidden>Limpiar</button></h2>
+      <div class="jobs" id="jobs"><div class="empty">Nada en curso.</div></div>
+    </section>
+  </aside>
+
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STAGES = {
+  extract: "Extrayendo artículo",
+  signals: "Leyendo comentarios y signals",
+  render: "Renderizando",
+  write: "Guardando archivos",
+};
+const STATUS_LABELS = { queued: "En cola", running: "Descargando", done: "Listo", error: "Error" };
+
+const state = { articles: [], jobs: [], query: "" };
+const view = document.getElementById("view");
+
+// ---------- utilidades ----------
+
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[char]));
+
+// Markdown inline minimo que produce el extractor: links, negrita, italica y code.
+function inline(text) {
+  const codes = [];
+  let html = escapeHtml(text).replace(/`([^`]+)`/g, (_, code) => {
+    codes.push(code);
+    return `\u0000${codes.length - 1}\u0000`;
+  });
+  html = html
+    .replace(/\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\*\*\*\s*([^*]+?)\s*\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*\s*([^*]+?)\s*\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g, "$1<em>$2</em>");
+  return html.replace(/\u0000(\d+)\u0000/g, (_, index) => `<code>${codes[index]}</code>`);
+}
+
+function formatDate(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat("es", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
+function toast(message) {
+  const element = document.getElementById("toast");
+  element.textContent = message;
+  element.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => element.classList.remove("show"), 1800);
+}
+
+async function api(url, init) {
+  const response = await fetch(url, init);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  return body;
+}
+
+const fileUrl = (slug, file, download = false) =>
+  `/api/articles/${encodeURIComponent(slug)}/files/${file.split("/").map(encodeURIComponent).join("/")}${download ? "?download" : ""}`;
+
+// ---------- descarga y cola ----------
+
+document.getElementById("download-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const errorBox = document.getElementById("form-error");
+  errorBox.hidden = true;
+  const urls = document.getElementById("urls").value.split(/\s+/).filter(Boolean);
+  try {
+    await enqueue(urls, {
+      format: document.getElementById("format").value,
+      images: document.getElementById("images").value,
+      comments: document.getElementById("comments").checked,
+    });
+    document.getElementById("urls").value = "";
+  } catch (error) {
+    errorBox.textContent = error.message;
+    errorBox.hidden = false;
+  }
+});
+
+async function enqueue(urls, options) {
+  const { jobs } = await api("/api/jobs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ urls, options }),
+  });
+  toast(jobs.length === 1 ? "Descarga en cola" : `${jobs.length} descargas en cola`);
+}
+
+document.getElementById("clear-jobs").addEventListener("click", () => api("/api/jobs", { method: "DELETE" }));
+
+function renderJobs() {
+  const container = document.getElementById("jobs");
+  document.getElementById("clear-jobs").hidden = !state.jobs.some((job) => job.status === "done" || job.status === "error");
+  if (state.jobs.length === 0) {
+    container.innerHTML = '<div class="empty">Nada en curso.</div>';
+    return;
+  }
+
+  container.innerHTML = state.jobs.map((job) => {
+    let detail = "";
+    if (job.status === "running") {
+      detail = `<div class="job-detail"><span class="spinner"></span> ${escapeHtml(STAGES[job.stage] ?? "Iniciando navegador")}</div>`;
+    } else if (job.status === "error") {
+      detail = `<div class="job-detail err">${escapeHtml(job.error)}</div>`;
+    } else if (job.status === "done") {
+      const parts = [];
+      if (job.options.comments) parts.push(`${job.reply_count} comentarios`);
+      if (job.failures.length) parts.push(`${job.failures.length} aviso(s) de providers`);
+      if (parts.length) detail = `<div class="job-detail">${escapeHtml(parts.join(" · "))}</div>`;
+    }
+    const title = job.title
+      ? `<a class="job-title" href="#/a/${encodeURIComponent(job.slug)}">${escapeHtml(job.title)}</a>`
+      : `<div class="job-url">${escapeHtml(job.url.replace(/^https:\/\//, ""))}</div>`;
+    return `<div class="job">
+      <div class="job-head">${title}<span class="badge ${job.status}">${STATUS_LABELS[job.status]}</span></div>
+      ${detail}
+    </div>`;
+  }).join("");
+}
+
+function connectEvents() {
+  const source = new EventSource("/api/events");
+  source.onmessage = (event) => {
+    const previous = new Map(state.jobs.map((job) => [job.id, job.status]));
+    state.jobs = JSON.parse(event.data).jobs;
+    renderJobs();
+
+    const finished = state.jobs.filter((job) => job.status === "done" && previous.has(job.id) && previous.get(job.id) !== "done");
+    if (finished.length) {
+      loadLibrary().then(() => {
+        const current = currentSlug();
+        if (!current) renderLibrary();
+        else if (finished.some((job) => job.slug === current)) renderReader(current);
+      });
+    }
+  };
+}
+
+// ---------- biblioteca ----------
+
+async function loadLibrary() {
+  state.articles = (await api("/api/articles")).articles;
+}
+
+function renderLibrary() {
+  const query = state.query.toLowerCase();
+  const matches = state.articles.filter((article) =>
+    !query || [article.title, article.author_name, article.author_handle].some((value) => value?.toLowerCase().includes(query)));
+
+  const cards = matches.map((article) => {
+    const chips = [`${article.word_count.toLocaleString("es")} palabras`];
+    if (article.image_count) chips.push(`${article.image_count} imágenes`);
+    if (article.reply_count) chips.push(`${article.reply_count} comentarios`);
+    return `<a class="card" href="#/a/${encodeURIComponent(article.slug)}">
+      <h3>${escapeHtml(article.title)}</h3>
+      <div class="by">${escapeHtml([article.author_name, article.author_handle].filter(Boolean).join(" "))} · ${formatDate(article.fetched_at)}</div>
+      <div class="meta-row">${chips.map((chip) => `<span class="badge">${escapeHtml(chip)}</span>`).join("")}${article.has_json ? "" : '<span class="badge warn">sin JSON</span>'}</div>
+    </a>`;
+  }).join("");
+
+  view.innerHTML = `
+    <div class="lib-head">
+      <div>
+        <h1>Biblioteca</h1>
+        <p>${state.articles.length} artículo(s) en <code>downloads/articles</code></p>
+      </div>
+      <input type="search" id="search" placeholder="Buscar por título o autor" value="${escapeHtml(state.query)}">
+    </div>
+    ${matches.length ? `<div class="cards">${cards}</div>`
+      : `<p class="empty">${state.articles.length ? "Sin resultados." : "Todavía no hay artículos. Pegá una URL a la izquierda para empezar."}</p>`}
+  `;
+
+  const search = document.getElementById("search");
+  search.addEventListener("input", () => {
+    state.query = search.value;
+    renderLibrary();
+    const next = document.getElementById("search");
+    next.focus();
+    next.setSelectionRange(next.value.length, next.value.length);
+  });
+}
+
+// ---------- lector ----------
+
+function resolveImageSrc(slug, src) {
+  return /^https?:\/\//.test(src) ? src : fileUrl(slug, src);
+}
+
+function renderBlock(block, slug) {
+  switch (block.type) {
+    case "paragraph": return `<p>${inline(block.text)}</p>`;
+    case "heading": {
+      const level = Math.max(2, Math.min(block.level ?? 2, 4));
+      return `<h${level}>${inline(String(block.text).replace(/^[*_`]+|[*_`]+$/g, ""))}</h${level}>`;
+    }
+    case "blockquote": return `<blockquote>${inline(block.text).replace(/\n/g, "<br>")}</blockquote>`;
+    case "list": {
+      const tag = block.ordered ? "ol" : "ul";
+      return `<${tag}>${block.items.map((item) => `<li>${inline(item)}</li>`).join("")}</${tag}>`;
+    }
+    case "separator": return "<hr>";
+    case "code": return `<pre><code>${escapeHtml(block.text)}</code></pre>`;
+    case "image": return `<img src="${escapeHtml(resolveImageSrc(slug, block.src))}" alt="${escapeHtml(block.alt ?? "")}" loading="lazy">`;
+    case "embedded_post": {
+      const who = [block.author?.name, block.author?.handle].filter(Boolean);
+      const images = (block.images ?? []).map((image) => `<img src="${escapeHtml(resolveImageSrc(slug, image.src))}" alt="" loading="lazy">`).join("");
+      return `<div class="embed">
+        <div class="who">${escapeHtml(who[0] ?? "Post embebido")} <span>${escapeHtml(who.slice(1).join(" "))}${block.date_text ? ` · ${escapeHtml(block.date_text)}` : ""}</span></div>
+        <p>${escapeHtml(block.text)}</p>${images}
+        ${block.url ? `<a href="${escapeHtml(block.url)}" target="_blank" rel="noopener">Ver en X</a>` : ""}
+      </div>`;
+    }
+    default: return "";
+  }
+}
+
+function renderSignals(signals) {
+  if (!signals) return "";
+  const boxes = [];
+
+  const metricLabels = { likes: "likes", replies: "replies", reposts: "reposts", quotes: "quotes", bookmarks: "guardados", impressions: "vistas" };
+  const metrics = Object.entries(metricLabels).filter(([key]) => signals.metrics?.[key] != null);
+  if (metrics.length) {
+    boxes.push(`<div class="box"><h2 class="section">Métricas</h2><div class="metrics">
+      ${metrics.map(([key, label]) => `<div class="metric"><strong>${formatNumber(signals.metrics[key])}</strong><span>${label}</span></div>`).join("")}
+    </div></div>`);
+  }
+
+  const replies = signals.conversation?.top_replies ?? [];
+  const themes = signals.conversation?.recurring_themes ?? [];
+  if (replies.length || themes.length) {
+    boxes.push(`<div class="box"><h2 class="section">Comentarios <span class="badge">${replies.length}</span></h2>
+      ${themes.length ? `<div class="chips" style="margin-bottom:12px">${themes.map((theme) => `<span class="chip">${escapeHtml(theme.theme)} · ${theme.mentions}</span>`).join("")}</div>` : ""}
+      ${replies.map((reply) => `<div class="reply">
+        <div class="who">${escapeHtml(reply.author?.name ?? reply.author?.handle ?? "Anónimo")}
+          ${reply.url ? `<a href="${escapeHtml(reply.url)}" target="_blank" rel="noopener">${escapeHtml(reply.author?.handle ?? "ver")}</a>` : ""}</div>
+        <p>${escapeHtml(reply.text)}</p>
+        ${reply.metrics?.views ? `<div class="views">${formatNumber(reply.metrics.views)} vistas</div>` : ""}
+      </div>`).join("")}
+    </div>`);
+  }
+
+  const failures = signals.provider_trace?.failures ?? [];
+  const summary = signals.awareness?.summary;
+  if (summary || failures.length) {
+    boxes.push(`<div class="box"><h2 class="section">Awareness</h2>
+      ${summary ? `<p class="summary">${escapeHtml(summary)}</p>` : ""}
+      ${failures.length ? `<ul class="failures">${failures.map((failure) => `<li>${escapeHtml(typeof failure === "string" ? failure : [failure.provider ?? failure.step, failure.detail ?? failure.message].filter(Boolean).join(": "))}</li>`).join("")}</ul>` : ""}
+    </div>`);
+  }
+
+  return boxes.join("");
+}
+
+async function renderReader(slug) {
+  let data;
+  try {
+    data = await api(`/api/articles/${encodeURIComponent(slug)}`);
+  } catch (error) {
+    view.innerHTML = `<a class="back" href="#/">← Biblioteca</a><p class="form-error">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  if (currentSlug() !== slug) return;
+
+  const { summary, document: doc, signals, markdown } = data;
+  const body = doc
+    ? doc.article.blocks.map((block) => renderBlock(block, slug)).join("")
+    : `<pre class="raw">${escapeHtml(markdown ?? "")}</pre>`;
+  const byline = [summary.author_name, summary.author_handle].filter(Boolean).join(" ");
+
+  view.innerHTML = `
+    <a class="back" href="#/">← Biblioteca</a>
+    <div class="reader">
+      <article class="doc">
+        <h1>${escapeHtml(summary.title)}</h1>
+        <div class="byline">${escapeHtml(byline)} · descargado ${formatDate(summary.fetched_at)} · ${summary.word_count.toLocaleString("es")} palabras</div>
+        ${body}
+      </article>
+      <div class="panel">
+        <div class="box actions">
+          ${markdown ? '<button class="btn" id="copy-md" type="button">Copiar Markdown</button>' : ""}
+          ${summary.status_url ? `<a class="btn" href="${escapeHtml(summary.status_url)}" target="_blank" rel="noopener">Abrir en X</a>` : ""}
+          ${summary.status_url ? `<button class="btn" id="refetch" type="button">${summary.reply_count ? "Volver a descargar con comentarios" : "Descargar comentarios"}</button>` : ""}
+        </div>
+        ${renderSignals(signals)}
+        <div class="box"><h2 class="section">Archivos</h2>
+          <ul class="files">${summary.files.map((file) => `<li>
+            <a href="${fileUrl(slug, file)}" target="_blank"><code>${escapeHtml(file)}</code></a>
+            <a class="btn small" href="${fileUrl(slug, file, true)}">Bajar</a>
+          </li>`).join("")}</ul>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("copy-md")?.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(markdown);
+    toast("Markdown copiado");
+  });
+  document.getElementById("refetch")?.addEventListener("click", async (event) => {
+    event.currentTarget.disabled = true;
+    try {
+      await enqueue([summary.status_url], { format: "bundle", images: "embed", comments: true });
+    } catch (error) {
+      toast(error.message);
+      event.currentTarget.disabled = false;
+    }
+  });
+}
+
+// ---------- router ----------
+
+function currentSlug() {
+  const match = location.hash.match(/^#\/a\/(.+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function route() {
+  const slug = currentSlug();
+  window.scrollTo(0, 0);
+  if (slug) await renderReader(slug);
+  else renderLibrary();
+}
+
+window.addEventListener("hashchange", route);
+
+(async () => {
+  connectEvents();
+  try {
+    await loadLibrary();
+  } catch (error) {
+    view.innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  route();
+})();
+</script>
+</body>
+</html>
