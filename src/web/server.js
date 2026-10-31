@@ -250,7 +250,8 @@ function enqueueJobs(body) {
     error: null,
   }));
 
-  jobs.unshift(...created);
+  // La cola corre desde el final de `jobs`: invertimos para respetar el orden pegado.
+  jobs.unshift(...[...created].reverse());
   trimFinishedJobs();
   broadcast();
   runQueue();
