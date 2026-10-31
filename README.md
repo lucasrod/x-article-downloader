@@ -60,7 +60,9 @@ Levanta un servidor local en `http://127.0.0.1:4173` (cambiar con `PORT=...`) co
 
 - formulario para pegar una o varias URLs de status (se descargan en cola, de a una)
 - progreso en vivo de cada descarga
-- biblioteca de todo lo que hay en `./downloads/articles/`
+- biblioteca de todo lo que hay en `./downloads/articles/`, con busqueda de texto (titulo, autor y contenido; sin distinguir tildes; `"frase exacta"`) y filtros por autor, fecha de publicacion, largo, idioma, contenido y fecha de descarga
+- el estado de busqueda y filtros vive en la URL, asi que se puede volver atras o guardar un link
+- prototipo de tres disposiciones (A, B, C) seleccionables desde la cabecera
 - lector del articulo con metricas, comentarios, temas recurrentes y archivos generados
 - boton para volver a descargar un articulo con comentarios
 

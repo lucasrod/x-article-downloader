@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>X Article Downloader</title>
+<title>X Article Library</title>
 <style>
   :root {
     --bg: #f6f5f1;
@@ -14,6 +14,7 @@
     --muted: #6b675e;
     --accent: #1d5bd8;
     --accent-soft: #e3ebfb;
+    --mark: #fbe7a1;
     --ok: #2f7a3f;
     --ok-soft: #e2f1e4;
     --warn: #9a6200;
@@ -21,163 +22,204 @@
     --err: #b3261e;
     --err-soft: #f9e1df;
     --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 4px 16px rgba(0, 0, 0, .04);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, .16);
     --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
     --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --topbar: 56px;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #151513;
-      --surface: #1d1d1a;
-      --surface-2: #262622;
-      --border: #34332e;
-      --text: #ebe8e0;
-      --muted: #9b978c;
-      --accent: #7ea6ff;
-      --accent-soft: #1f2a44;
-      --ok: #7fcf8d;
-      --ok-soft: #1d2e21;
-      --warn: #e8b55c;
-      --warn-soft: #33281a;
-      --err: #ff8a80;
-      --err-soft: #3a1f1d;
-      --shadow: none;
+      --bg: #151513; --surface: #1d1d1a; --surface-2: #262622; --border: #34332e;
+      --text: #ebe8e0; --muted: #9b978c; --accent: #7ea6ff; --accent-soft: #1f2a44; --mark: #5b4a12;
+      --ok: #7fcf8d; --ok-soft: #1d2e21; --warn: #e8b55c; --warn-soft: #33281a;
+      --err: #ff8a80; --err-soft: #3a1f1d; --shadow: none; --shadow-lg: 0 10px 40px rgba(0, 0, 0, .5);
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #151513; --surface: #1d1d1a; --surface-2: #262622; --border: #34332e;
-    --text: #ebe8e0; --muted: #9b978c; --accent: #7ea6ff; --accent-soft: #1f2a44;
+    --text: #ebe8e0; --muted: #9b978c; --accent: #7ea6ff; --accent-soft: #1f2a44; --mark: #5b4a12;
     --ok: #7fcf8d; --ok-soft: #1d2e21; --warn: #e8b55c; --warn-soft: #33281a;
-    --err: #ff8a80; --err-soft: #3a1f1d; --shadow: none; color-scheme: dark;
+    --err: #ff8a80; --err-soft: #3a1f1d; --shadow: none; --shadow-lg: 0 10px 40px rgba(0, 0, 0, .5);
+    color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.5 var(--sans);
-  }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); }
   a { color: var(--accent); }
   button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
 
-  .app {
-    display: grid;
-    grid-template-columns: 340px minmax(0, 1fr);
-    min-height: 100vh;
+  /* ---------- barra superior ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 30; height: var(--topbar);
+    display: flex; align-items: center; gap: 12px; padding: 0 20px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
   }
-  aside {
-    border-right: 1px solid var(--border);
-    background: var(--surface);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
-  }
-  main { padding: 28px 36px 64px; min-width: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); margin-right: auto; min-width: 0; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 7px; background: var(--text); color: var(--bg); display: grid; place-items: center; font-weight: 700; flex: none; }
+  .brand strong { font-size: 15px; white-space: nowrap; }
+  .variant { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .segmented button { border: 0; background: none; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .segmented button + button { border-left: 1px solid var(--border); }
+  .segmented button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
 
-  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
-  .brand-mark {
-    width: 30px; height: 30px; border-radius: 8px;
-    background: var(--text); color: var(--bg);
-    display: grid; place-items: center; font-weight: 700;
+  .btn {
+    border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 12px;
+    cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 6px;
+    text-decoration: none; color: var(--text); white-space: nowrap;
   }
-  .brand strong { display: block; font-size: 15px; }
-  .brand span { display: block; font-size: 12px; color: var(--muted); }
+  .btn:hover { background: var(--surface-2); }
+  .btn.dark { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+  .btn.dark:hover { opacity: .9; }
+  .btn.small { padding: 2px 8px; font-size: 12px; }
+  .btn.ghost { border-color: transparent; background: none; }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn[aria-expanded="true"], .btn.active { border-color: var(--text); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .count-pill { background: var(--accent); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 6px; font-weight: 700; }
+  .btn.dark .count-pill { background: var(--bg); color: var(--text); }
+  .icon-btn { border: 0; background: none; cursor: pointer; font-size: 20px; line-height: 1; padding: 4px 8px; border-radius: 6px; color: var(--muted); }
+  .icon-btn:hover { background: var(--surface-2); }
 
-  h2.section {
-    font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
-    color: var(--muted); margin: 0 0 10px; font-weight: 600;
-    display: flex; justify-content: space-between; align-items: center;
+  /* ---------- shell por variante ---------- */
+  .shell { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  body[data-layout="a"] .shell { grid-template-columns: 272px minmax(0, 1fr); }
+  body[data-layout="b"] .shell { grid-template-columns: 300px 256px minmax(0, 1fr); }
+  body.reading[data-layout="a"] .shell { grid-template-columns: minmax(0, 1fr); }
+  body.reading[data-layout="b"] .shell { grid-template-columns: 300px minmax(0, 1fr); }
+  body.reading .filters { display: none; }
+  body[data-layout="c"] .filters { display: none; }
+
+  .side {
+    position: sticky; top: var(--topbar); height: calc(100vh - var(--topbar)); overflow-y: auto;
+    background: var(--surface); border-right: 1px solid var(--border); padding: 18px;
   }
+  .side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .side-head h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .side-close { display: none; }
 
+  /* descargas: columna fija en B, panel deslizable en A y C */
+  .downloads { display: flex; flex-direction: column; gap: 20px; }
+  body:not([data-layout="b"]) .downloads,
+  .downloads.as-drawer {
+    position: fixed; z-index: 50; top: 0; right: 0; height: 100vh; width: min(380px, 100vw);
+    border-left: 1px solid var(--border); border-right: 0; box-shadow: var(--shadow-lg);
+    transform: translateX(105%); transition: transform .2s ease; visibility: hidden;
+  }
+  body:not([data-layout="b"]) .downloads.open { transform: none; visibility: visible; }
+  body:not([data-layout="b"]) .downloads .side-close { display: inline-block; }
+  body[data-layout="b"] #open-downloads { display: none; }
+
+  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .3); }
+
+  /* ---------- formulario y cola ---------- */
   textarea {
-    width: 100%; min-height: 96px; resize: vertical;
-    border: 1px solid var(--border); border-radius: 8px;
+    width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--border); border-radius: 8px;
     background: var(--bg); padding: 10px; font: 13px/1.45 var(--mono);
   }
-  textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-
   .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
   label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
-  select, input[type="search"] {
-    border: 1px solid var(--border); border-radius: 8px;
-    background: var(--bg); padding: 7px 9px; font-size: 14px; width: 100%;
+  select, input[type="search"], input[type="date"], input[type="text"] {
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 7px 9px; font-size: 14px; width: 100%;
   }
   .check { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 14px; cursor: pointer; }
   .check input { margin-top: 3px; }
   .check small { display: block; color: var(--muted); font-size: 12px; }
-
-  .btn {
-    border: 1px solid var(--border); background: var(--surface);
-    border-radius: 8px; padding: 7px 12px; cursor: pointer;
-    font-size: 14px; display: inline-flex; align-items: center; gap: 6px;
-    text-decoration: none; color: var(--text);
-  }
-  .btn:hover { background: var(--surface-2); }
-  .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); width: 100%; justify-content: center; margin-top: 14px; padding: 9px; font-weight: 600; }
-  .btn.primary:hover { opacity: .9; }
-  .btn.small { padding: 3px 8px; font-size: 12px; }
-  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.submit { width: 100%; justify-content: center; margin-top: 14px; padding: 9px; }
   .form-error { color: var(--err); font-size: 13px; margin-top: 8px; }
-
   .jobs { display: flex; flex-direction: column; gap: 8px; }
-  .job {
-    border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px;
-    font-size: 13px; background: var(--bg);
-  }
+  .job { border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; font-size: 13px; background: var(--bg); }
   .job-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
   .job-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .job-url { color: var(--muted); font: 11px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .job-detail { color: var(--muted); font-size: 12px; margin-top: 4px; }
   .job-detail.err { color: var(--err); }
-  .badge {
-    font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px; white-space: nowrap;
-    background: var(--surface-2); color: var(--muted);
-  }
+  .badge { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px; white-space: nowrap; background: var(--surface-2); color: var(--muted); }
   .badge.running { background: var(--accent-soft); color: var(--accent); }
   .badge.done { background: var(--ok-soft); color: var(--ok); }
   .badge.error { background: var(--err-soft); color: var(--err); }
-  .badge.warn { background: var(--warn-soft); color: var(--warn); }
-  .empty { color: var(--muted); font-size: 13px; }
-  .spinner {
-    width: 10px; height: 10px; border-radius: 50%;
-    border: 2px solid currentColor; border-right-color: transparent;
-    display: inline-block; animation: spin .8s linear infinite; vertical-align: -1px;
-  }
+  .empty { color: var(--muted); font-size: 14px; }
+  .spinner { width: 10px; height: 10px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; display: inline-block; animation: spin .8s linear infinite; vertical-align: -1px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Biblioteca */
-  .lib-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
-  .lib-head h1 { margin: 0; font: 600 26px/1.2 var(--serif); }
-  .lib-head p { margin: 4px 0 0; color: var(--muted); }
-  .lib-head input { max-width: 300px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-  .card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px 18px; text-decoration: none; color: var(--text); box-shadow: var(--shadow);
-    display: flex; flex-direction: column; gap: 8px; transition: border-color .15s;
+  /* ---------- facetas ---------- */
+  .facet { border-top: 1px solid var(--border); padding: 10px 0; }
+  .facet:first-child { border-top: 0; padding-top: 0; }
+  .facet-toggle {
+    width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    border: 0; background: none; padding: 4px 0; cursor: pointer; font-weight: 600; font-size: 14px; text-align: left;
   }
-  .card:hover { border-color: var(--muted); }
-  .card h3 { margin: 0; font: 600 17px/1.3 var(--serif); }
-  .card .by { color: var(--muted); font-size: 13px; }
-  .meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 4px; }
+  .facet-toggle .chev { color: var(--muted); transition: transform .15s; }
+  .facet-toggle[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+  .facet-active { font-size: 11px; color: var(--accent); font-weight: 600; margin-left: auto; }
+  .facet-body { padding-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .facet-search { margin-bottom: 6px; font-size: 13px !important; padding: 5px 8px !important; }
+  .opt {
+    display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 3px 4px; border-radius: 6px; cursor: pointer;
+  }
+  .opt:hover { background: var(--surface-2); }
+  .opt input { margin: 0; flex: none; accent-color: var(--accent); }
+  .opt .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opt .label small { color: var(--muted); }
+  .opt .n { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .opt.zero { opacity: .45; }
+  .facet-more { border: 0; background: none; color: var(--accent); cursor: pointer; font-size: 13px; padding: 4px; text-align: left; }
+  .date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .date-range label { font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+  .date-range input { font-size: 12px; padding: 4px 6px; }
 
-  /* Lector */
+  /* ---------- vista biblioteca ---------- */
+  main { min-width: 0; padding: 24px 32px 64px; }
+  .library { max-width: 940px; }
+  body[data-layout="c"] .library { margin: 0 auto; }
+  .lib-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .lib-title h1 { margin: 0; font: 600 26px/1.2 var(--serif); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .search-wrap { position: relative; flex: 1 1 320px; }
+  .search-wrap input { padding: 10px 40px 10px 36px; font-size: 16px; border-radius: 10px; background: var(--surface); }
+  .search-wrap .glass { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .search-wrap kbd { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font: 11px var(--mono); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
+  .search-wrap input:not(:placeholder-shown) ~ kbd { display: none; }
+  .sort { width: auto; background: var(--surface); }
+  .c-only, #open-filters { display: none; }
+  body[data-layout="c"] .c-only { display: inline-flex; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; background: var(--accent-soft); color: var(--accent); border: 0; border-radius: 999px; padding: 3px 6px 3px 10px; cursor: pointer; }
+  .chip span { font-size: 15px; line-height: 1; }
+  .chip.clear { background: none; color: var(--muted); text-decoration: underline; padding: 3px 6px; }
+  .result-count { color: var(--muted); font-size: 13px; margin: 14px 0 6px; }
+
+  .results { list-style: none; margin: 0; padding: 0; transition: opacity .15s; }
+  .results.loading { opacity: .5; }
+  .row { border-top: 1px solid var(--border); }
+  .row:first-child { border-top: 0; }
+  .row a { display: block; padding: 14px 10px; margin: 0 -10px; border-radius: 10px; text-decoration: none; color: var(--text); }
+  .row a:hover, .row a:focus-visible { background: var(--surface); }
+  .row h2 { margin: 0 0 3px; font: 600 18px/1.3 var(--serif); }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--muted); font-size: 13px; }
+  .meta .author { color: var(--text); font-weight: 500; }
+  .meta .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+  .snippet { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .no-results { padding: 40px 0; text-align: center; color: var(--muted); }
+
+  /* ---------- popover (variante C) ---------- */
+  .popover {
+    position: fixed; z-index: 45; width: 300px; max-height: min(70vh, 560px); overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 14px;
+  }
+  .popover.wide { width: 560px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+  .popover.wide .facet:nth-child(2) { border-top: 0; padding-top: 0; }
+
+  /* ---------- lector ---------- */
   .reader { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 36px; align-items: start; }
   .back { display: inline-block; margin-bottom: 18px; font-size: 14px; text-decoration: none; }
-  article.doc {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 40px 48px; box-shadow: var(--shadow);
-    font: 18px/1.65 var(--serif); max-width: 760px;
-  }
+  article.doc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 40px 48px; box-shadow: var(--shadow); font: 18px/1.65 var(--serif); max-width: 760px; }
   article.doc h1 { font-size: 32px; line-height: 1.2; margin: 0 0 8px; }
   article.doc .byline { font: 14px var(--sans); color: var(--muted); margin-bottom: 28px; }
   article.doc h2, article.doc h3, article.doc h4 { line-height: 1.3; margin: 1.6em 0 .5em; }
@@ -188,25 +230,21 @@
   article.doc code { font: .85em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
   article.doc pre code { background: none; padding: 0; }
   article.doc hr { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
-  .embed {
-    border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 1.2em 0;
-    font: 14px/1.5 var(--sans); background: var(--bg);
-  }
+  .embed { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 1.2em 0; font: 14px/1.5 var(--sans); background: var(--bg); }
   .embed .who { font-weight: 600; }
   .embed .who span { color: var(--muted); font-weight: 400; }
   .embed p { white-space: pre-line; margin: 6px 0 !important; }
   pre.raw { white-space: pre-wrap; font: 14px/1.55 var(--mono); background: none; padding: 0; }
-
-  .panel { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .panel { position: sticky; top: calc(var(--topbar) + 20px); display: flex; flex-direction: column; gap: 14px; }
   .box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
-  .box h2.section { margin-bottom: 12px; }
+  .box h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; display: flex; justify-content: space-between; }
   .actions { display: flex; flex-direction: column; gap: 8px; }
   .actions .btn { justify-content: center; }
   .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .metric strong { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .metric strong { display: block; font-size: 20px; }
   .metric span { font-size: 12px; color: var(--muted); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font-size: 12px; background: var(--surface-2); border-radius: 999px; padding: 2px 9px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tags span { font-size: 12px; background: var(--surface-2); border-radius: 999px; padding: 2px 9px; }
   .reply { border-top: 1px solid var(--border); padding: 10px 0; font-size: 13px; }
   .reply:first-of-type { border-top: 0; padding-top: 0; }
   .reply .who { font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
@@ -218,38 +256,74 @@
   .files code { font: 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .failures { font-size: 12px; color: var(--warn); margin: 0; padding-left: 16px; }
   .summary { font-size: 13px; margin: 0 0 10px; color: var(--muted); }
-  .toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px;
-    opacity: 0; transition: opacity .2s; pointer-events: none;
-  }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
 
-  @media (max-width: 1100px) {
+  /* ---------- responsive ---------- */
+  @media (max-width: 1180px) {
+    /* B sin espacio para tres columnas: descargas pasa a panel, como en A */
+    body[data-layout="b"] .shell { grid-template-columns: 256px minmax(0, 1fr); }
+    body.reading[data-layout="b"] .shell { grid-template-columns: minmax(0, 1fr); }
+    body[data-layout="b"] .downloads {
+      position: fixed; z-index: 50; top: 0; right: 0; height: 100vh; width: min(380px, 100vw);
+      border-left: 1px solid var(--border); border-right: 0; box-shadow: var(--shadow-lg);
+      transform: translateX(105%); transition: transform .2s ease; visibility: hidden;
+    }
+    body[data-layout="b"] .downloads.open { transform: none; visibility: visible; }
+    body[data-layout="b"] .downloads .side-close { display: inline-block; }
+    body[data-layout="b"] #open-downloads { display: inline-flex; }
     .reader { grid-template-columns: minmax(0, 1fr); }
     .panel { position: static; }
   }
   @media (max-width: 760px) {
-    .app { grid-template-columns: 1fr; }
-    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 16px; }
-    main { padding: 20px 16px 48px; }
+    .topbar { padding: 0 12px; gap: 8px; }
+    .brand strong, .variant-label { display: none; }
+    body .shell, body[data-layout] .shell { grid-template-columns: minmax(0, 1fr) !important; }
+    main { padding: 16px 16px 48px; }
+    body:not([data-layout="c"]) #open-filters { display: inline-flex; }
+    body:not([data-layout="c"]) .filters {
+      position: fixed; z-index: 50; top: 0; left: 0; height: 100vh; width: min(340px, 90vw);
+      box-shadow: var(--shadow-lg); transform: translateX(-105%); transition: transform .2s ease; visibility: hidden;
+    }
+    body:not([data-layout="c"]) .filters.open { transform: none; visibility: visible; }
+    .filters .side-close { display: inline-block; }
+    .search-wrap { flex-basis: 100%; }
+    .search-wrap kbd { display: none; }
+    .popover, .popover.wide { left: 12px !important; right: 12px; width: auto; grid-template-columns: 1fr; }
+    .popover.wide .facet:nth-child(2) { border-top: 1px solid var(--border); padding-top: 10px; }
     article.doc { padding: 24px 18px; font-size: 17px; }
     article.doc h1 { font-size: 26px; }
-    .lib-head input { max-width: none; }
   }
 </style>
 </head>
-<body>
-<div class="app">
-  <aside>
-    <a class="brand" href="#/">
-      <div class="brand-mark">X</div>
-      <div><strong>Article Downloader</strong><span>Biblioteca local de Articles de X</span></div>
-    </a>
+<body data-layout="a">
+<header class="topbar">
+  <a class="brand" href="#/">
+    <span class="brand-mark">X</span>
+    <strong>Article Library</strong>
+  </a>
+  <div class="variant" title="Prototipo: elegí la disposición que prefieras">
+    <span class="variant-label">Variante</span>
+    <div class="segmented" id="variant-switch">
+      <button type="button" data-layout="a" title="Facetas a la izquierda, descargas en panel">A</button>
+      <button type="button" data-layout="b" title="Descargas fijas + facetas + resultados">B</button>
+      <button type="button" data-layout="c" title="Barra de filtros arriba + Más filtros">C</button>
+    </div>
+  </div>
+  <button class="btn dark" type="button" id="open-downloads" aria-controls="downloads" aria-expanded="false">
+    Descargar <span class="count-pill" id="jobs-pill" hidden></span>
+  </button>
+</header>
 
+<div class="shell">
+  <aside class="side downloads" id="downloads" aria-label="Descargas">
+    <div class="side-head">
+      <h2>Descargar</h2>
+      <button class="icon-btn side-close" type="button" data-close="downloads" aria-label="Cerrar">×</button>
+    </div>
     <form id="download-form">
-      <h2 class="section">Descargar</h2>
-      <textarea id="urls" placeholder="https://x.com/usuario/status/123...&#10;Una URL por línea" spellcheck="false"></textarea>
+      <textarea id="urls" placeholder="https://x.com/usuario/status/123...&#10;Una URL por línea" spellcheck="false" aria-label="URLs a descargar"></textarea>
       <div class="field-grid">
         <label class="field">Formato
           <select id="format">
@@ -270,31 +344,93 @@
         <input type="checkbox" id="comments">
         <span>Traer comentarios<small>Lee las replies visibles con el navegador. Tarda más.</small></span>
       </label>
-      <button class="btn primary" type="submit" id="submit">Descargar</button>
+      <button class="btn dark submit" type="submit">Descargar</button>
       <div class="form-error" id="form-error" hidden></div>
     </form>
-
     <section>
-      <h2 class="section">Cola <button class="btn small" id="clear-jobs" type="button" hidden>Limpiar</button></h2>
+      <div class="side-head">
+        <h2>Cola</h2>
+        <button class="btn small" id="clear-jobs" type="button" hidden>Limpiar</button>
+      </div>
       <div class="jobs" id="jobs"><div class="empty">Nada en curso.</div></div>
     </section>
   </aside>
 
-  <main id="view"></main>
+  <aside class="side filters" id="filters" aria-label="Filtros">
+    <div class="side-head">
+      <h2>Filtros</h2>
+      <span>
+        <button class="btn small ghost" type="button" data-action="clear-filters" id="filters-clear" hidden>Limpiar</button>
+        <button class="icon-btn side-close" type="button" data-close="filters" aria-label="Cerrar">×</button>
+      </span>
+    </div>
+    <div id="facet-groups"></div>
+  </aside>
+
+  <main>
+    <section class="library" id="library-view">
+      <div class="lib-title">
+        <h1>Biblioteca</h1>
+      </div>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="glass" aria-hidden="true">⌕</span>
+          <input type="search" id="search" placeholder="Buscar en títulos, autores y contenido…" aria-label="Buscar" autocomplete="off">
+          <kbd>/</kbd>
+        </div>
+        <button class="btn" type="button" id="open-filters" aria-controls="filters" aria-expanded="false">Filtros <span class="count-pill" data-active-count hidden></span></button>
+        <button class="btn c-only" type="button" data-popover="author" aria-expanded="false">Autor <span class="count-pill" data-facet-count="author" hidden></span> ▾</button>
+        <button class="btn c-only" type="button" data-popover="pub" aria-expanded="false">Publicación <span class="count-pill" data-facet-count="pub" hidden></span> ▾</button>
+        <button class="btn c-only" type="button" data-popover="more" aria-expanded="false">Más filtros <span class="count-pill" data-facet-count="more" hidden></span> ▾</button>
+        <select class="sort" id="sort" aria-label="Ordenar">
+          <option value="relevance">Relevancia</option>
+          <option value="newest">Publicación: más nuevos</option>
+          <option value="oldest">Publicación: más viejos</option>
+          <option value="downloaded">Descargados recientemente</option>
+          <option value="longest">Más largos</option>
+          <option value="shortest">Más cortos</option>
+          <option value="author">Autor A–Z</option>
+        </select>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="result-count" id="result-count" aria-live="polite"></div>
+      <ul class="results" id="results"></ul>
+    </section>
+    <section id="reader-view" hidden></section>
+  </main>
 </div>
-<div class="toast" id="toast"></div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="popover" id="popover" role="dialog" hidden></div>
+<div class="toast" id="toast" role="status"></div>
 
 <script>
-const STAGES = {
-  extract: "Extrayendo artículo",
-  signals: "Leyendo comentarios y signals",
-  render: "Renderizando",
-  write: "Guardando archivos",
-};
+const STAGES = { extract: "Extrayendo artículo", signals: "Leyendo comentarios y signals", render: "Renderizando", write: "Guardando archivos" };
 const STATUS_LABELS = { queued: "En cola", running: "Descargando", done: "Listo", error: "Error" };
+const DATE_LABELS = { "7d": "Últimos 7 días", "30d": "Últimos 30 días", "90d": "Últimos 3 meses", "365d": "Último año" };
+const FACETS = [
+  { key: "author", label: "Autor", kind: "multi", primary: true },
+  { key: "pub", label: "Fecha de publicación", kind: "date", primary: true },
+  { key: "len", label: "Largo de lectura", kind: "multi" },
+  { key: "lang", label: "Idioma", kind: "multi" },
+  { key: "has", label: "Contenido", kind: "multi" },
+  { key: "dl", label: "Fecha de descarga", kind: "date" },
+];
+const MULTI_KEYS = ["author", "len", "lang", "has"];
+const AUTHOR_PREVIEW = 8;
 
-const state = { articles: [], jobs: [], query: "" };
-const view = document.getElementById("view");
+const state = {
+  jobs: [],
+  data: null,
+  open: new Set(["author", "pub"]),
+  authorFilter: "",
+  authorExpanded: false,
+  popover: null,
+  lastLibraryHash: "#/",
+  request: null,
+};
+
+const $ = (id) => document.getElementById(id);
 
 // ---------- utilidades ----------
 
@@ -317,17 +453,19 @@ function inline(text) {
   return html.replace(/\u0000(\d+)\u0000/g, (_, index) => `<code>${codes[index]}</code>`);
 }
 
+const segmentsHtml = (segments) => segments
+  .map((segment) => segment.mark ? `<mark>${escapeHtml(segment.text)}</mark>` : escapeHtml(segment.text))
+  .join("");
+
 function formatDate(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function formatNumber(value) {
-  return new Intl.NumberFormat("es", { notation: "compact", maximumFractionDigits: 1 }).format(value);
-}
+const formatNumber = (value) => new Intl.NumberFormat("es", { notation: "compact", maximumFractionDigits: 1 }).format(value);
 
 function toast(message) {
-  const element = document.getElementById("toast");
+  const element = $("toast");
   element.textContent = message;
   element.classList.add("show");
   clearTimeout(toast.timer);
@@ -344,20 +482,434 @@ async function api(url, init) {
 const fileUrl = (slug, file, download = false) =>
   `/api/articles/${encodeURIComponent(slug)}/files/${file.split("/").map(encodeURIComponent).join("/")}${download ? "?download" : ""}`;
 
-// ---------- descarga y cola ----------
+// ---------- variante de layout (prototipo) ----------
 
-document.getElementById("download-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const errorBox = document.getElementById("form-error");
-  errorBox.hidden = true;
-  const urls = document.getElementById("urls").value.split(/\s+/).filter(Boolean);
+function readLayout() {
+  const fromUrl = new URLSearchParams(location.search).get("layout");
+  if (["a", "b", "c"].includes(fromUrl)) return fromUrl;
+  try { return localStorage.getItem("library-layout") || "a"; } catch { return "a"; }
+}
+
+function setLayout(layout) {
+  document.body.dataset.layout = layout;
+  for (const button of $("variant-switch").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.layout === layout));
+  }
+  try { localStorage.setItem("library-layout", layout); } catch {}
+  closeOverlays();
+  renderFacets();
+}
+
+$("variant-switch").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-layout]");
+  if (button) setLayout(button.dataset.layout);
+});
+
+// ---------- estado en la URL ----------
+
+function currentParams() {
+  const query = location.hash.startsWith("#/?") ? location.hash.slice(3) : "";
+  return new URLSearchParams(query);
+}
+
+function setParams(mutate, { replace = false } = {}) {
+  const params = currentParams();
+  mutate(params);
+  for (const [key, value] of [...params]) if (!value) params.delete(key);
+  const query = params.toString();
+  const hash = query ? `#/?${query}` : "#/";
+  if (replace) {
+    history.replaceState(null, "", hash);
+    route();
+  } else if (hash !== location.hash) {
+    location.hash = hash;
+  } else {
+    route();
+  }
+}
+
+const listParam = (params, key) => (params.get(key) || "").split(",").filter(Boolean);
+
+function toggleListValue(key, value, checked) {
+  setParams((params) => {
+    const values = new Set(listParam(params, key));
+    if (checked) values.add(value); else values.delete(value);
+    params.set(key, [...values].join(","));
+  });
+}
+
+function setDateFilter(key, preset) {
+  setParams((params) => {
+    params.delete(`${key}_from`);
+    params.delete(`${key}_to`);
+    params.set(key, preset);
+  });
+}
+
+function setDateRange(key, edge, value) {
+  setParams((params) => {
+    params.delete(key);
+    params.set(`${key}_${edge}`, value);
+  });
+}
+
+function clearFilters() {
+  setParams((params) => {
+    for (const key of [...params.keys()]) if (key !== "q" && key !== "sort") params.delete(key);
+  });
+}
+
+function activeFilterCount(params, keys = FACETS.map((facet) => facet.key)) {
+  let count = 0;
+  for (const key of keys) {
+    if (MULTI_KEYS.includes(key)) count += listParam(params, key).length;
+    else if (params.get(key) || params.get(`${key}_from`) || params.get(`${key}_to`)) count += 1;
+  }
+  return count;
+}
+
+// ---------- biblioteca ----------
+
+let searchTimer = null;
+$("search").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    const value = $("search").value.trim();
+    setParams((params) => {
+      params.set("q", value);
+      params.delete("sort");
+    }, { replace: true });
+  }, 160);
+});
+
+$("sort").addEventListener("change", () => {
+  setParams((params) => params.set("sort", $("sort").value));
+});
+
+async function loadLibrary() {
+  const params = currentParams();
+  state.request?.abort();
+  const controller = new AbortController();
+  state.request = controller;
+  $("results").classList.add("loading");
+
   try {
-    await enqueue(urls, {
-      format: document.getElementById("format").value,
-      images: document.getElementById("images").value,
-      comments: document.getElementById("comments").checked,
-    });
-    document.getElementById("urls").value = "";
+    const response = await fetch(`/api/library?${params}`, { signal: controller.signal });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+    state.data = await response.json();
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    $("results").classList.remove("loading");
+    $("results").innerHTML = `<li class="no-results">No pude cargar la biblioteca: ${escapeHtml(error.message)}</li>`;
+    return;
+  }
+
+  $("results").classList.remove("loading");
+  renderLibrary(params);
+}
+
+function renderLibrary(params) {
+  const data = state.data;
+  if (document.activeElement !== $("search")) $("search").value = params.get("q") || "";
+
+  const sort = $("sort");
+  sort.querySelector('option[value="relevance"]').disabled = data.query.length === 0;
+  sort.value = data.sort;
+
+  const active = activeFilterCount(params);
+  for (const pill of document.querySelectorAll("[data-active-count]")) {
+    pill.textContent = active;
+    pill.hidden = active === 0;
+  }
+  $("filters-clear").hidden = active === 0;
+  updatePopoverButtons(params);
+  renderChips(params);
+  renderFacets();
+
+  $("result-count").textContent = data.total === 0
+    ? ""
+    : data.count === data.total
+      ? `${data.total} artículos`
+      : `${data.count} de ${data.total} artículos`;
+
+  if (data.total === 0) {
+    $("results").innerHTML = '<li class="no-results">Todavía no hay artículos. Usá “Descargar” para empezar.</li>';
+    return;
+  }
+  if (data.count === 0) {
+    $("results").innerHTML = `<li class="no-results">Sin resultados para esta búsqueda y filtros.<br><br>
+      <button class="btn" type="button" data-action="clear-all">Limpiar búsqueda y filtros</button></li>`;
+    return;
+  }
+
+  $("results").innerHTML = data.results.map((article) => {
+    const meta = [
+      `<span class="author">${escapeHtml(article.author_name || article.author_handle)}</span>`,
+      article.author_name ? `<span>${escapeHtml(article.author_handle)}</span>` : "",
+      article.published_at ? `<span title="Publicado">${formatDate(article.published_at)}</span>` : "",
+      `<span>${article.reading_minutes} min</span>`,
+      article.lang !== "other" ? `<span class="tag">${article.lang}</span>` : "",
+      article.image_count ? `<span>${article.image_count} img</span>` : "",
+      article.embed_count ? `<span>${article.embed_count} embebidos</span>` : "",
+      article.reply_count ? `<span>${article.reply_count} comentarios</span>` : "",
+    ].filter(Boolean).join("");
+    return `<li class="row"><a href="#/a/${encodeURIComponent(article.slug)}">
+      <h2>${segmentsHtml(article.title_segments)}</h2>
+      <div class="meta">${meta}</div>
+      <p class="snippet">${segmentsHtml(article.snippet)}</p>
+    </a></li>`;
+  }).join("");
+}
+
+function chipLabel(key, value) {
+  const facet = state.data.facets[key];
+  if (key === "author") return `Autor: ${facet.find((option) => option.value === value)?.label ?? value}`;
+  return facet.find((option) => option.value === value)?.label ?? value;
+}
+
+function renderChips(params) {
+  const chips = [];
+  for (const key of MULTI_KEYS) {
+    for (const value of listParam(params, key)) {
+      chips.push({ label: chipLabel(key, value), remove: () => toggleListValue(key, value, false) });
+    }
+  }
+  for (const key of ["pub", "dl"]) {
+    const prefix = key === "pub" ? "Publicado" : "Descargado";
+    const preset = params.get(key);
+    const from = params.get(`${key}_from`);
+    const to = params.get(`${key}_to`);
+    if (preset) chips.push({ label: `${prefix}: ${DATE_LABELS[preset]?.toLowerCase() ?? preset}`, remove: () => setDateFilter(key, "") });
+    if (from || to) chips.push({ label: `${prefix}: ${from || "…"} → ${to || "…"}`, remove: () => setParams((p) => { p.delete(`${key}_from`); p.delete(`${key}_to`); }) });
+  }
+
+  state.chipActions = chips.map((chip) => chip.remove);
+  $("chips").innerHTML = chips.map((chip, index) =>
+    `<button class="chip" type="button" data-chip="${index}" aria-label="Quitar ${escapeHtml(chip.label)}">${escapeHtml(chip.label)} <span aria-hidden="true">×</span></button>`).join("")
+    + (chips.length > 1 ? '<button class="chip clear" type="button" data-action="clear-filters">Quitar todos</button>' : "");
+}
+
+// ---------- facetas ----------
+
+function facetHtml(facet, params) {
+  const data = state.data.facets[facet.key];
+  const activeCount = activeFilterCount(params, [facet.key]);
+  const open = state.open.has(facet.key) || activeCount > 0 || state.popover;
+  const body = facet.kind === "date" ? dateFacetBody(facet.key, data, params) : multiFacetBody(facet.key, data, params);
+  return `<section class="facet" data-facet-group="${facet.key}">
+    <button class="facet-toggle" type="button" data-toggle-facet="${facet.key}" aria-expanded="${open}">
+      <span>${facet.label}</span>
+      ${activeCount ? `<span class="facet-active">${activeCount} activo${activeCount > 1 ? "s" : ""}</span>` : ""}
+      <span class="chev" aria-hidden="true">▾</span>
+    </button>
+    <div class="facet-body" ${open ? "" : "hidden"}>${body}</div>
+  </section>`;
+}
+
+function multiFacetBody(key, options, params) {
+  const selected = new Set(listParam(params, key));
+  let visible = options;
+  let more = "";
+
+  if (key === "author") {
+    const filter = state.authorFilter.toLowerCase();
+    const matching = options.filter((option) => selected.has(option.value)
+      || !filter || `${option.label} ${option.value}`.toLowerCase().includes(filter));
+    const ordered = [...matching].sort((left, right) => Number(selected.has(right.value)) - Number(selected.has(left.value)));
+    visible = state.authorExpanded || filter ? ordered : ordered.slice(0, AUTHOR_PREVIEW);
+    if (!filter && ordered.length > AUTHOR_PREVIEW) {
+      more = `<button class="facet-more" type="button" data-action="toggle-authors">${state.authorExpanded ? "Ver menos" : `Ver los ${ordered.length} autores`}</button>`;
+    }
+  }
+
+  const items = visible.map((option) => {
+    const checked = selected.has(option.value);
+    const label = key === "author"
+      ? `${escapeHtml(option.label)} <small>${escapeHtml(option.value)}</small>`
+      : escapeHtml(option.label);
+    return `<label class="opt ${option.count === 0 && !checked ? "zero" : ""}">
+      <input type="checkbox" data-multi="${key}" value="${escapeHtml(option.value)}" ${checked ? "checked" : ""}>
+      <span class="label">${label}</span><span class="n">${option.count}</span>
+    </label>`;
+  }).join("");
+
+  const search = key === "author"
+    ? `<input type="text" class="facet-search" data-author-search placeholder="Buscar autor…" value="${escapeHtml(state.authorFilter)}" aria-label="Buscar autor">`
+    : "";
+  return search + (items || '<div class="empty">Sin coincidencias.</div>') + more;
+}
+
+function dateFacetBody(key, presets, params) {
+  const current = params.get(key) || "";
+  const name = `date-${key}-${state.popover ? "pop" : "side"}`;
+  const radios = [{ value: "", label: "Cualquier fecha", count: null }, ...presets.map((preset) => ({ ...preset, label: DATE_LABELS[preset.value] }))]
+    .map((option) => `<label class="opt ${option.count === 0 && current !== option.value ? "zero" : ""}">
+      <input type="radio" name="${name}" data-date="${key}" value="${option.value}" ${current === option.value && !params.get(`${key}_from`) && !params.get(`${key}_to`) ? "checked" : ""}>
+      <span class="label">${option.label}</span>${option.count == null ? "" : `<span class="n">${option.count}</span>`}
+    </label>`).join("");
+  return `${radios}
+    <div class="date-range">
+      <label>Desde<input type="date" data-range="${key}" data-edge="from" value="${escapeHtml(params.get(`${key}_from`) || "")}"></label>
+      <label>Hasta<input type="date" data-range="${key}" data-edge="to" value="${escapeHtml(params.get(`${key}_to`) || "")}"></label>
+    </div>`;
+}
+
+function renderFacets() {
+  if (!state.data) return;
+  const params = currentParams();
+  const restoreAuthorFocus = document.activeElement?.matches?.("[data-author-search]");
+
+  $("facet-groups").innerHTML = state.popover ? "" : FACETS.map((facet) => facetHtml(facet, params)).join("");
+  if (state.popover) renderPopover(params);
+
+  if (restoreAuthorFocus) {
+    const input = document.querySelector("[data-author-search]");
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  }
+}
+
+// ---------- popovers (variante C) ----------
+
+const POPOVER_FACETS = { author: ["author"], pub: ["pub"], more: ["len", "lang", "has", "dl"] };
+
+function updatePopoverButtons(params) {
+  for (const [name, keys] of Object.entries(POPOVER_FACETS)) {
+    const pill = document.querySelector(`[data-facet-count="${name}"]`);
+    const count = activeFilterCount(params, keys);
+    pill.textContent = count;
+    pill.hidden = count === 0;
+  }
+}
+
+function openPopover(name, button) {
+  if (state.popover === name) return closeOverlays();
+  closeOverlays();
+  state.popover = name;
+  state.popoverButton = button;
+  button.setAttribute("aria-expanded", "true");
+  const popover = $("popover");
+  popover.className = `popover${name === "more" ? " wide" : ""}`;
+  popover.hidden = false;
+  renderFacets();
+  const rect = button.getBoundingClientRect();
+  const width = popover.offsetWidth;
+  popover.style.top = `${rect.bottom + 6}px`;
+  popover.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - width - 12))}px`;
+  popover.querySelector("input")?.focus();
+}
+
+function renderPopover(params) {
+  const facets = FACETS.filter((facet) => POPOVER_FACETS[state.popover].includes(facet.key));
+  $("popover").innerHTML = facets.map((facet) => facetHtml(facet, params)).join("");
+}
+
+// ---------- paneles ----------
+
+function openDrawer(id, button) {
+  closeOverlays();
+  $(id).classList.add("open");
+  $("scrim").hidden = false;
+  button?.setAttribute("aria-expanded", "true");
+  state.drawerButton = button;
+  $(id).querySelector("textarea, input, button")?.focus();
+}
+
+function closeOverlays() {
+  let returnFocus = null;
+  for (const id of ["downloads", "filters"]) {
+    if ($(id).classList.contains("open")) {
+      $(id).classList.remove("open");
+      returnFocus = state.drawerButton;
+    }
+  }
+  $("scrim").hidden = true;
+  $("open-downloads").setAttribute("aria-expanded", "false");
+  $("open-filters").setAttribute("aria-expanded", "false");
+
+  if (state.popover) {
+    state.popover = null;
+    $("popover").hidden = true;
+    state.popoverButton?.setAttribute("aria-expanded", "false");
+    returnFocus = state.popoverButton;
+    renderFacets();
+  }
+  returnFocus?.focus();
+}
+
+$("open-downloads").addEventListener("click", (event) => openDrawer("downloads", event.currentTarget));
+$("open-filters").addEventListener("click", (event) => openDrawer("filters", event.currentTarget));
+$("scrim").addEventListener("click", closeOverlays);
+
+// ---------- eventos delegados ----------
+
+document.addEventListener("click", (event) => {
+  const target = event.target;
+  const popoverButton = target.closest("[data-popover]");
+  if (popoverButton) return openPopover(popoverButton.dataset.popover, popoverButton);
+
+  if (state.popover && !target.closest("#popover")) closeOverlays();
+
+  const close = target.closest("[data-close]");
+  if (close) return closeOverlays();
+
+  const toggle = target.closest("[data-toggle-facet]");
+  if (toggle) {
+    const key = toggle.dataset.toggleFacet;
+    if (state.open.has(key)) state.open.delete(key); else state.open.add(key);
+    const body = toggle.nextElementSibling;
+    const expanded = toggle.getAttribute("aria-expanded") === "true";
+    toggle.setAttribute("aria-expanded", String(!expanded));
+    body.hidden = expanded;
+    return;
+  }
+
+  const chip = target.closest("[data-chip]");
+  if (chip) return state.chipActions[Number(chip.dataset.chip)]();
+
+  const action = target.closest("[data-action]")?.dataset.action;
+  if (action === "clear-filters") return clearFilters();
+  if (action === "clear-all") return setParams((params) => { for (const key of [...params.keys()]) params.delete(key); });
+  if (action === "toggle-authors") {
+    state.authorExpanded = !state.authorExpanded;
+    return renderFacets();
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const target = event.target;
+  if (target.matches("[data-multi]")) return toggleListValue(target.dataset.multi, target.value, target.checked);
+  if (target.matches("[data-date]")) return setDateFilter(target.dataset.date, target.value);
+  if (target.matches("[data-range]")) return setDateRange(target.dataset.range, target.dataset.edge, target.value);
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.matches("[data-author-search]")) {
+    state.authorFilter = event.target.value;
+    renderFacets();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") return closeOverlays();
+  const typing = event.target.closest("input, textarea, select, [contenteditable]");
+  if (event.key === "/" && !typing && !document.body.classList.contains("reading")) {
+    event.preventDefault();
+    $("search").focus();
+    $("search").select();
+  }
+});
+
+// ---------- descargas y cola ----------
+
+$("download-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const errorBox = $("form-error");
+  errorBox.hidden = true;
+  const urls = $("urls").value.split(/\s+/).filter(Boolean);
+  try {
+    await enqueue(urls, { format: $("format").value, images: $("images").value, comments: $("comments").checked });
+    $("urls").value = "";
   } catch (error) {
     errorBox.textContent = error.message;
     errorBox.hidden = false;
@@ -373,17 +925,19 @@ async function enqueue(urls, options) {
   toast(jobs.length === 1 ? "Descarga en cola" : `${jobs.length} descargas en cola`);
 }
 
-document.getElementById("clear-jobs").addEventListener("click", () => api("/api/jobs", { method: "DELETE" }));
+$("clear-jobs").addEventListener("click", () => api("/api/jobs", { method: "DELETE" }));
 
 function renderJobs() {
-  const container = document.getElementById("jobs");
-  document.getElementById("clear-jobs").hidden = !state.jobs.some((job) => job.status === "done" || job.status === "error");
+  const pending = state.jobs.filter((job) => job.status === "queued" || job.status === "running").length;
+  $("jobs-pill").textContent = pending;
+  $("jobs-pill").hidden = pending === 0;
+  $("clear-jobs").hidden = !state.jobs.some((job) => job.status === "done" || job.status === "error");
+
   if (state.jobs.length === 0) {
-    container.innerHTML = '<div class="empty">Nada en curso.</div>';
+    $("jobs").innerHTML = '<div class="empty">Nada en curso.</div>';
     return;
   }
-
-  container.innerHTML = state.jobs.map((job) => {
+  $("jobs").innerHTML = state.jobs.map((job) => {
     let detail = "";
     if (job.status === "running") {
       detail = `<div class="job-detail"><span class="spinner"></span> ${escapeHtml(STAGES[job.stage] ?? "Iniciando navegador")}</div>`;
@@ -398,10 +952,7 @@ function renderJobs() {
     const title = job.title
       ? `<a class="job-title" href="#/a/${encodeURIComponent(job.slug)}">${escapeHtml(job.title)}</a>`
       : `<div class="job-url">${escapeHtml(job.url.replace(/^https:\/\//, ""))}</div>`;
-    return `<div class="job">
-      <div class="job-head">${title}<span class="badge ${job.status}">${STATUS_LABELS[job.status]}</span></div>
-      ${detail}
-    </div>`;
+    return `<div class="job"><div class="job-head">${title}<span class="badge ${job.status}">${STATUS_LABELS[job.status]}</span></div>${detail}</div>`;
   }).join("");
 }
 
@@ -413,65 +964,16 @@ function connectEvents() {
     renderJobs();
 
     const finished = state.jobs.filter((job) => job.status === "done" && previous.has(job.id) && previous.get(job.id) !== "done");
-    if (finished.length) {
-      loadLibrary().then(() => {
-        const current = currentSlug();
-        if (!current) renderLibrary();
-        else if (finished.some((job) => job.slug === current)) renderReader(current);
-      });
-    }
+    if (finished.length === 0) return;
+    const slug = currentSlug();
+    if (!slug) loadLibrary();
+    else if (finished.some((job) => job.slug === slug)) renderReader(slug);
   };
-}
-
-// ---------- biblioteca ----------
-
-async function loadLibrary() {
-  state.articles = (await api("/api/articles")).articles;
-}
-
-function renderLibrary() {
-  const query = state.query.toLowerCase();
-  const matches = state.articles.filter((article) =>
-    !query || [article.title, article.author_name, article.author_handle].some((value) => value?.toLowerCase().includes(query)));
-
-  const cards = matches.map((article) => {
-    const chips = [`${article.word_count.toLocaleString("es")} palabras`];
-    if (article.image_count) chips.push(`${article.image_count} imágenes`);
-    if (article.reply_count) chips.push(`${article.reply_count} comentarios`);
-    return `<a class="card" href="#/a/${encodeURIComponent(article.slug)}">
-      <h3>${escapeHtml(article.title)}</h3>
-      <div class="by">${escapeHtml([article.author_name, article.author_handle].filter(Boolean).join(" "))} · ${formatDate(article.fetched_at)}</div>
-      <div class="meta-row">${chips.map((chip) => `<span class="badge">${escapeHtml(chip)}</span>`).join("")}${article.has_json ? "" : '<span class="badge warn">sin JSON</span>'}</div>
-    </a>`;
-  }).join("");
-
-  view.innerHTML = `
-    <div class="lib-head">
-      <div>
-        <h1>Biblioteca</h1>
-        <p>${state.articles.length} artículo(s) en <code>downloads/articles</code></p>
-      </div>
-      <input type="search" id="search" placeholder="Buscar por título o autor" value="${escapeHtml(state.query)}">
-    </div>
-    ${matches.length ? `<div class="cards">${cards}</div>`
-      : `<p class="empty">${state.articles.length ? "Sin resultados." : "Todavía no hay artículos. Pegá una URL a la izquierda para empezar."}</p>`}
-  `;
-
-  const search = document.getElementById("search");
-  search.addEventListener("input", () => {
-    state.query = search.value;
-    renderLibrary();
-    const next = document.getElementById("search");
-    next.focus();
-    next.setSelectionRange(next.value.length, next.value.length);
-  });
 }
 
 // ---------- lector ----------
 
-function resolveImageSrc(slug, src) {
-  return /^https?:\/\//.test(src) ? src : fileUrl(slug, src);
-}
+const resolveImageSrc = (slug, src) => /^https?:\/\//.test(src) ? src : fileUrl(slug, src);
 
 function renderBlock(block, slug) {
   switch (block.type) {
@@ -504,20 +1006,18 @@ function renderBlock(block, slug) {
 function renderSignals(signals) {
   if (!signals) return "";
   const boxes = [];
-
   const metricLabels = { likes: "likes", replies: "replies", reposts: "reposts", quotes: "quotes", bookmarks: "guardados", impressions: "vistas" };
   const metrics = Object.entries(metricLabels).filter(([key]) => signals.metrics?.[key] != null);
   if (metrics.length) {
-    boxes.push(`<div class="box"><h2 class="section">Métricas</h2><div class="metrics">
+    boxes.push(`<div class="box"><h3>Métricas</h3><div class="metrics">
       ${metrics.map(([key, label]) => `<div class="metric"><strong>${formatNumber(signals.metrics[key])}</strong><span>${label}</span></div>`).join("")}
     </div></div>`);
   }
-
   const replies = signals.conversation?.top_replies ?? [];
   const themes = signals.conversation?.recurring_themes ?? [];
   if (replies.length || themes.length) {
-    boxes.push(`<div class="box"><h2 class="section">Comentarios <span class="badge">${replies.length}</span></h2>
-      ${themes.length ? `<div class="chips" style="margin-bottom:12px">${themes.map((theme) => `<span class="chip">${escapeHtml(theme.theme)} · ${theme.mentions}</span>`).join("")}</div>` : ""}
+    boxes.push(`<div class="box"><h3>Comentarios <span class="badge">${replies.length}</span></h3>
+      ${themes.length ? `<div class="tags" style="margin-bottom:12px">${themes.map((theme) => `<span>${escapeHtml(theme.theme)} · ${theme.mentions}</span>`).join("")}</div>` : ""}
       ${replies.map((reply) => `<div class="reply">
         <div class="who">${escapeHtml(reply.author?.name ?? reply.author?.handle ?? "Anónimo")}
           ${reply.url ? `<a href="${escapeHtml(reply.url)}" target="_blank" rel="noopener">${escapeHtml(reply.author?.handle ?? "ver")}</a>` : ""}</div>
@@ -526,25 +1026,24 @@ function renderSignals(signals) {
       </div>`).join("")}
     </div>`);
   }
-
   const failures = signals.provider_trace?.failures ?? [];
   const summary = signals.awareness?.summary;
   if (summary || failures.length) {
-    boxes.push(`<div class="box"><h2 class="section">Awareness</h2>
+    boxes.push(`<div class="box"><h3>Awareness</h3>
       ${summary ? `<p class="summary">${escapeHtml(summary)}</p>` : ""}
       ${failures.length ? `<ul class="failures">${failures.map((failure) => `<li>${escapeHtml(typeof failure === "string" ? failure : [failure.provider ?? failure.step, failure.detail ?? failure.message].filter(Boolean).join(": "))}</li>`).join("")}</ul>` : ""}
     </div>`);
   }
-
   return boxes.join("");
 }
 
 async function renderReader(slug) {
+  const view = $("reader-view");
   let data;
   try {
     data = await api(`/api/articles/${encodeURIComponent(slug)}`);
   } catch (error) {
-    view.innerHTML = `<a class="back" href="#/">← Biblioteca</a><p class="form-error">${escapeHtml(error.message)}</p>`;
+    view.innerHTML = `<a class="back" href="${state.lastLibraryHash}">← Biblioteca</a><p class="form-error">${escapeHtml(error.message)}</p>`;
     return;
   }
   if (currentSlug() !== slug) return;
@@ -556,7 +1055,7 @@ async function renderReader(slug) {
   const byline = [summary.author_name, summary.author_handle].filter(Boolean).join(" ");
 
   view.innerHTML = `
-    <a class="back" href="#/">← Biblioteca</a>
+    <a class="back" href="${state.lastLibraryHash}">← Biblioteca</a>
     <div class="reader">
       <article class="doc">
         <h1>${escapeHtml(summary.title)}</h1>
@@ -570,27 +1069,27 @@ async function renderReader(slug) {
           ${summary.status_url ? `<button class="btn" id="refetch" type="button">${summary.reply_count ? "Volver a descargar con comentarios" : "Descargar comentarios"}</button>` : ""}
         </div>
         ${renderSignals(signals)}
-        <div class="box"><h2 class="section">Archivos</h2>
+        <div class="box"><h3>Archivos</h3>
           <ul class="files">${summary.files.map((file) => `<li>
             <a href="${fileUrl(slug, file)}" target="_blank"><code>${escapeHtml(file)}</code></a>
             <a class="btn small" href="${fileUrl(slug, file, true)}">Bajar</a>
           </li>`).join("")}</ul>
         </div>
       </div>
-    </div>
-  `;
+    </div>`;
 
-  document.getElementById("copy-md")?.addEventListener("click", async () => {
+  $("copy-md")?.addEventListener("click", async () => {
     await navigator.clipboard.writeText(markdown);
     toast("Markdown copiado");
   });
-  document.getElementById("refetch")?.addEventListener("click", async (event) => {
-    event.currentTarget.disabled = true;
+  $("refetch")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
     try {
       await enqueue([summary.status_url], { format: "bundle", images: "embed", comments: true });
     } catch (error) {
       toast(error.message);
-      event.currentTarget.disabled = false;
+      button.disabled = false;
     }
   });
 }
@@ -602,25 +1101,35 @@ function currentSlug() {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-async function route() {
+let lastView = null;
+function route() {
   const slug = currentSlug();
-  window.scrollTo(0, 0);
-  if (slug) await renderReader(slug);
-  else renderLibrary();
+  // Los filtros cambian el hash; solo cerramos paneles al pasar de vista.
+  if (Boolean(slug) !== (lastView === "reader")) closeOverlays();
+  document.body.classList.toggle("reading", Boolean(slug));
+  $("library-view").hidden = Boolean(slug);
+  $("reader-view").hidden = !slug;
+
+  if (slug) {
+    window.scrollTo(0, 0);
+    lastView = "reader";
+    renderReader(slug);
+    return;
+  }
+  state.lastLibraryHash = location.hash || "#/";
+  if (lastView === "reader") window.scrollTo(0, state.libraryScroll ?? 0);
+  lastView = "library";
+  loadLibrary();
 }
 
 window.addEventListener("hashchange", route);
+window.addEventListener("scroll", () => {
+  if (lastView === "library") state.libraryScroll = window.scrollY;
+}, { passive: true });
 
-(async () => {
-  connectEvents();
-  try {
-    await loadLibrary();
-  } catch (error) {
-    view.innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`;
-    return;
-  }
-  route();
-})();
+setLayout(readLayout());
+connectEvents();
+route();
 </script>
 </body>
 </html>

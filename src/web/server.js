@@ -16,6 +16,7 @@ import {
 } from "../core/article-schema.js";
 import { DEFAULT_DOWNLOAD_ROOT } from "../core/output.js";
 import { downloadArticle } from "../pipeline.js";
+import { searchLibrary } from "./library.js";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.PORT || 4173);
@@ -65,6 +66,10 @@ async function route(request, response) {
 
   if (parts[0] !== "api") {
     throw httpError(404, "No encontrado");
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/library") {
+    return sendJson(response, 200, await searchLibrary(LIBRARY_ROOT, url.searchParams));
   }
 
   if (request.method === "GET" && parts[1] === "articles" && parts.length === 2) {
