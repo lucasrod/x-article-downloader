@@ -16,7 +16,8 @@ Mantener una pipeline X-first:
 - Extraer desde la URL publica del `status`, no desde `x.com/i/article/...`.
 - Mantener el parseo de X en `src/core/extract.js`.
 - Mantener renderers independientes en `src/core/*`.
-- Mantener providers separados en `src/providers/*`.
+- Mantener providers separados en `src/providers/*` (incluye `x-bookmarks.js`, que lee los bookmarks via CDP).
+- La web vive en `src/web/`: `server.js` (API + cola), `library.js` (indice y busqueda), `sync.js` (sincronizacion de bookmarks).
 - No mezclar awareness social con el renderer Markdown.
 - Los comentarios por defecto se recolectan best-effort desde browser, no desde la API paga de X.
 

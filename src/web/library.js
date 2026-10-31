@@ -64,6 +64,15 @@ export async function searchLibrary(root, params, now = Date.now()) {
   };
 }
 
+// Claves para saber si un bookmark ya esta en la biblioteca (por status o por titulo).
+export async function getLibraryKeys(root) {
+  const docs = await loadIndex(root);
+  return {
+    statusIds: new Set(docs.map((doc) => doc.status_id).filter(Boolean)),
+    titles: new Set(docs.map((doc) => doc.titleNorm).filter(Boolean)),
+  };
+}
+
 // ---------- indice ----------
 
 async function loadIndex(root) {
@@ -113,6 +122,7 @@ async function indexArticle(dir, slug) {
     author_name: authorName,
     author_handle: authorHandle,
     status_url: document.source.status_url,
+    status_id: document.source.status_id ?? null,
     published_at: statusIdToDate(document.source.status_id),
     fetched_at: document.source.fetched_at ?? null,
     words,

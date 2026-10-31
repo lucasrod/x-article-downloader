@@ -68,6 +68,17 @@ Levanta un servidor local en `http://127.0.0.1:4173` (cambiar con `PORT=...`) co
 Por defecto la web descarga en formato `bundle`, para que el lector tenga `article.json` y `signals.json`.
 Usa las mismas env vars que la CLI para la sesion de X: `X_BROWSER_STORAGE_STATE` o `X_BROWSER_CDP_ENDPOINT`.
 
+### Sincronizar bookmarks
+
+En la pagina **Agregar** (`#/agregar`), el boton **Sincronizar bookmarks** lee tus bookmarks de X desde el navegador conectado por CDP (del mas reciente al mas viejo), detecta cuales son Articles, saltea los que ya estan en la biblioteca y los descarga con barra de progreso.
+
+- **Descargar automaticamente** (default): descarga apenas termina el escaneo. Sin tildar, muestra la lista para elegir cuales bajar.
+- **Solo los N mas recientes** (default 20): el escaneo se detiene al encontrar N articulos nuevos. Destildado, recorre todos los bookmarks.
+- **Detener** corta el escaneo o la cola; lo que ya se descargo queda. Volver a sincronizar retoma desde lo que falta.
+- Cada articulo que falla se reintenta una vez.
+
+Requiere `X_BROWSER_CDP_ENDPOINT` (ver abajo).
+
 ### Si X responde 403
 
 X bloquea el Chromium headless de Playwright (responde `403` con body vacio), aunque haya `storageState` valido. En ese caso usa tu navegador real via CDP:

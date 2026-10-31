@@ -17,6 +17,7 @@ import {
 import { DEFAULT_DOWNLOAD_ROOT } from "../core/output.js";
 import { downloadArticle } from "../pipeline.js";
 import { searchLibrary } from "./library.js";
+import { createBookmarkSync } from "./sync.js";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.PORT || 4173);
@@ -40,6 +41,14 @@ const MIME_TYPES = {
 const jobs = [];
 const subscribers = new Set();
 let queueRunning = false;
+
+const sync = createBookmarkSync({
+  root: LIBRARY_ROOT,
+  cdpEndpoint: process.env.X_BROWSER_CDP_ENDPOINT || null,
+  enqueue: (urls) => enqueueJobs({ urls, options: { format: "bundle" } }),
+  cancelJobs,
+  onChange: () => broadcast(),
+});
 
 const server = http.createServer(async (request, response) => {
   try {
@@ -98,6 +107,24 @@ async function route(request, response) {
   if (request.method === "DELETE" && url.pathname === "/api/jobs") {
     clearFinishedJobs();
     return sendJson(response, 200, { jobs: jobs.map(publicJob) });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/sync") {
+    return sendJson(response, 200, sync.snapshot());
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sync") {
+    const body = await readJsonBody(request);
+    return sendJson(response, 202, await sync.start(body));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sync/download") {
+    const body = await readJsonBody(request);
+    return sendJson(response, 202, sync.download(Array.isArray(body.urls) ? body.urls : []));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/sync/stop") {
+    return sendJson(response, 200, sync.stop());
   }
 
   if (request.method === "GET" && url.pathname === "/api/events") {
@@ -347,6 +374,15 @@ function trimFinishedJobs() {
   }
 }
 
+function cancelJobs(ids) {
+  const cancelled = new Set(ids);
+  for (let index = jobs.length - 1; index >= 0; index -= 1) {
+    if (cancelled.has(jobs[index].id) && jobs[index].status === "queued") {
+      jobs.splice(index, 1);
+    }
+  }
+}
+
 function clearFinishedJobs() {
   for (let index = jobs.length - 1; index >= 0; index -= 1) {
     if (jobs[index].status === "done" || jobs[index].status === "error") {
@@ -375,7 +411,7 @@ function openEventStream(request, response) {
     "cache-control": "no-cache",
     connection: "keep-alive",
   });
-  response.write(`data: ${JSON.stringify({ jobs: jobs.map(publicJob) })}\n\n`);
+  response.write(eventPayload());
   subscribers.add(response);
 
   const keepAlive = setInterval(() => response.write(": ping\n\n"), 25000);
@@ -385,8 +421,13 @@ function openEventStream(request, response) {
   });
 }
 
+function eventPayload() {
+  return `data: ${JSON.stringify({ jobs: jobs.map(publicJob), sync: sync.snapshot() })}\n\n`;
+}
+
 function broadcast() {
-  const payload = `data: ${JSON.stringify({ jobs: jobs.map(publicJob) })}\n\n`;
+  sync.updateFromJobs(jobs);
+  const payload = eventPayload();
   for (const subscriber of subscribers) {
     subscriber.write(payload);
   }

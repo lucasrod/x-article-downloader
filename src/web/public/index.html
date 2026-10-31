@@ -106,6 +106,33 @@
   details.options summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   details.options[open] { flex-basis: 100%; }
   details.options .field-grid { margin-top: 10px; }
+  .eyebrow { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .04em; color: var(--accent); text-transform: uppercase; }
+  .add h2.section-title { margin: 36px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .sync-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+  .sync-controls .check { margin: 0; align-items: center; }
+  .sync-controls .check input { margin: 0; }
+  .sync-controls input[type="number"] { width: 64px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); text-align: center; }
+  .sync-actions { display: flex; gap: 8px; margin-left: auto; }
+  .sync-actions .btn.dark { padding: 9px 18px; }
+  .sync-status { margin-top: 16px; }
+  .sync-status:empty { display: none; }
+  .sync-line { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; margin-bottom: 8px; }
+  .sync-line strong { font-weight: 600; }
+  .sync-line span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .progress { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .progress > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .3s ease; }
+  .progress.indeterminate > span { width: 30% !important; animation: slide 1.2s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+  .sync-sub { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .sync-items { list-style: none; margin: 14px 0 0; padding: 0; max-height: 340px; overflow-y: auto; border-top: 1px solid var(--border); }
+  .sync-items li { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .sync-items .t { flex: 1; min-width: 0; }
+  .sync-items .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sync-items .t small { color: var(--muted); }
+  .sync-items .t small.err { color: var(--err); white-space: normal; }
+  .sync-review { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .notice { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+  .notice code { font: 12px var(--mono); }
   .add-jobs { margin-top: 28px; }
   .add-jobs .side-head { margin-bottom: 10px; }
 
@@ -316,8 +343,22 @@
     </section>
     <section id="reader-view" hidden></section>
     <section class="add" id="add-view" hidden>
-      <h1>Agregar artículos</h1>
-      <p class="lead">Pegá la URL del post de X que contiene el Article. Cuando termine la ingesta se abre el artículo, ya dentro de la biblioteca.</p>
+      <p class="eyebrow">Tus bookmarks, tu biblioteca</p>
+      <h1>Descargá los artículos de X que guardaste en bookmarks</h1>
+      <p class="lead">Sincronizá tu cuenta y cada Article que guardaste queda en tu biblioteca: con búsqueda, filtros y listo para leer o exportar en Markdown.</p>
+      <div class="add-card" id="sync-card">
+        <div class="sync-controls">
+          <label class="check"><input type="checkbox" id="sync-auto" checked> Descargar automáticamente</label>
+          <label class="check"><input type="checkbox" id="sync-limit-on" checked> Solo los <input type="number" id="sync-limit" value="20" min="1" max="1000" aria-label="Cantidad de artículos"> más recientes</label>
+          <div class="sync-actions">
+            <button class="btn" type="button" id="sync-stop" hidden>Detener</button>
+            <button class="btn dark" type="button" id="sync-start">Sincronizar bookmarks</button>
+          </div>
+        </div>
+        <div class="sync-status" id="sync-status"></div>
+      </div>
+
+      <h2 class="section-title">O agregá un artículo por URL</h2>
       <form class="add-card" id="download-form">
         <textarea id="urls" placeholder="https://x.com/usuario/status/123…&#10;Podés pegar varias, una por línea" spellcheck="false" aria-label="URLs de X"></textarea>
         <div class="add-row">
@@ -344,7 +385,7 @@
               <span>Traer comentarios<small>Lee las replies visibles con el navegador. Tarda más.</small></span>
             </label>
           </details>
-          <button class="btn dark" type="submit">Agregar a la biblioteca</button>
+          <button class="btn" type="submit">Agregar a la biblioteca</button>
         </div>
         <div class="form-error" id="form-error" hidden></div>
       </form>
@@ -843,12 +884,188 @@ function renderJobs() {
   }).join("");
 }
 
+// ---------- sincronizar bookmarks ----------
+
+const SYNC_STATE_LABELS = {
+  found: "Encontrado", queued: "En cola", running: "Descargando", retrying: "Reintentando",
+  done: "Listo", error: "Error", cancelled: "Cancelado", skipped: "Omitido",
+};
+const SYNC_BADGES = { running: "running", retrying: "running", done: "done", error: "error" };
+
+function loadSyncSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("sync-settings") || "null");
+    if (!saved) return;
+    $("sync-auto").checked = saved.auto !== false;
+    $("sync-limit-on").checked = saved.limit !== null;
+    if (saved.limit) $("sync-limit").value = saved.limit;
+  } catch {}
+}
+
+function syncSettings() {
+  return {
+    auto: $("sync-auto").checked,
+    limit: $("sync-limit-on").checked ? Number($("sync-limit").value) || 20 : null,
+  };
+}
+
+for (const id of ["sync-auto", "sync-limit-on", "sync-limit"]) {
+  $(id).addEventListener("change", () => {
+    $("sync-limit").disabled = !$("sync-limit-on").checked;
+    try { localStorage.setItem("sync-settings", JSON.stringify(syncSettings())); } catch {}
+  });
+}
+
+$("sync-start").addEventListener("click", async () => {
+  try {
+    await api("/api/sync", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(syncSettings()),
+    });
+  } catch (error) {
+    toast(error.message);
+  }
+});
+
+$("sync-stop").addEventListener("click", () => api("/api/sync/stop", { method: "POST" }).catch((error) => toast(error.message)));
+
+$("sync-status").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-sync-action]");
+  if (!button) return;
+  if (button.dataset.syncAction === "download") {
+    const urls = [...$("sync-status").querySelectorAll("input[data-sync-url]:checked")].map((input) => input.value);
+    try {
+      await api("/api/sync/download", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ urls }),
+      });
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+  if (button.dataset.syncAction === "toggle-all") {
+    const inputs = [...$("sync-status").querySelectorAll("input[data-sync-url]")];
+    const checkAll = inputs.some((input) => !input.checked);
+    for (const input of inputs) input.checked = checkAll;
+    updateReviewButton();
+  }
+});
+
+$("sync-status").addEventListener("change", (event) => {
+  if (event.target.matches("input[data-sync-url]")) updateReviewButton();
+});
+
+function updateReviewButton() {
+  const button = $("sync-status").querySelector('[data-sync-action="download"]');
+  if (!button) return;
+  const count = $("sync-status").querySelectorAll("input[data-sync-url]:checked").length;
+  button.textContent = `Descargar seleccionados (${count})`;
+  button.disabled = count === 0;
+}
+
+function progressBar(value, total, indeterminate = false) {
+  const percent = total ? Math.round((value / total) * 100) : 0;
+  return `<div class="progress ${indeterminate ? "indeterminate" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${value}">
+    <span style="width:${percent}%"></span></div>`;
+}
+
+function syncItemsHtml(items, { review = false } = {}) {
+  return `<ul class="sync-items">${items.map((item) => {
+    const lead = review
+      ? `<input type="checkbox" data-sync-url value="${escapeHtml(item.url)}" checked aria-label="Descargar ${escapeHtml(item.title ?? item.url)}">`
+      : "";
+    const status = item.state === "done"
+      ? `<a class="btn small" href="#/a/${encodeURIComponent(item.slug)}">Abrir</a>`
+      : review ? "" : `<span class="badge ${SYNC_BADGES[item.state] ?? ""}">${SYNC_STATE_LABELS[item.state] ?? item.state}</span>`;
+    const detail = item.state === "error"
+      ? `<small class="err">${escapeHtml(item.error)}</small>`
+      : `<small>${escapeHtml(item.author ?? "")}</small>`;
+    return `<li>${lead}<div class="t"><div>${escapeHtml(item.title ?? item.url)}</div>${detail}</div>${status}</li>`;
+  }).join("")}</ul>`;
+}
+
+function renderSync(sync) {
+  if (!sync) return;
+  const busy = sync.status === "scanning" || sync.status === "downloading";
+  $("sync-start").disabled = busy || !sync.cdp_configured;
+  $("sync-start").textContent = sync.status === "idle" ? "Sincronizar bookmarks" : "Sincronizar de nuevo";
+  $("sync-stop").hidden = !(busy || sync.status === "review");
+
+  const box = $("sync-status");
+  if (!sync.cdp_configured) {
+    box.innerHTML = `<div class="notice">Para leer tus bookmarks, abrí tu navegador con sesión de X por CDP y levantá la web con
+      <code>X_BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222 npm run web</code>.</div>`;
+    return;
+  }
+
+  const counts = sync.counts ?? {};
+  const scan = sync.scan;
+  const limit = sync.settings.limit;
+  const foundCount = sync.items.length;
+  const scanSummary = `${scan.scanned} bookmarks revisados · ${scan.known} ya estaban en tu biblioteca`;
+
+  if (sync.status === "idle") {
+    box.innerHTML = "";
+    return;
+  }
+  if (sync.status === "scanning") {
+    box.innerHTML = `<div class="sync-line"><strong>Leyendo tus bookmarks…</strong><span>${foundCount}${limit ? ` de ${limit}` : ""} artículos nuevos</span></div>
+      ${progressBar(foundCount, limit ?? 0, !limit)}
+      <p class="sync-sub">${scanSummary}</p>
+      ${foundCount ? syncItemsHtml(sync.items) : ""}`;
+    return;
+  }
+  if (sync.status === "review") {
+    box.innerHTML = `<div class="sync-line"><strong>Encontré ${foundCount} artículo${foundCount === 1 ? "" : "s"} nuevo${foundCount === 1 ? "" : "s"}</strong><span>${scan.scanned} revisados</span></div>
+      <p class="sync-sub">${scanSummary}. Elegí cuáles descargar.</p>
+      ${syncItemsHtml(sync.items, { review: true })}
+      <div class="sync-review">
+        <button class="btn small ghost" type="button" data-sync-action="toggle-all">Seleccionar / quitar todos</button>
+        <button class="btn dark" type="button" data-sync-action="download">Descargar seleccionados (${foundCount})</button>
+      </div>`;
+    return;
+  }
+
+  const selected = sync.items.filter((item) => item.state !== "skipped");
+  const finished = (counts.done ?? 0) + (counts.error ?? 0) + (counts.cancelled ?? 0);
+  const current = sync.items.find((item) => item.state === "running");
+
+  if (sync.status === "downloading") {
+    box.innerHTML = `<div class="sync-line"><strong>Descargando ${Math.min(finished + 1, selected.length)} de ${selected.length}</strong><span>${counts.done ?? 0} listos${counts.error ? ` · ${counts.error} con error` : ""}</span></div>
+      ${progressBar(finished, selected.length)}
+      <p class="sync-sub">${current ? `Ahora: ${escapeHtml(current.title ?? current.url)}` : "Preparando la siguiente descarga…"}</p>
+      ${syncItemsHtml(selected)}`;
+    return;
+  }
+
+  let headline;
+  if (sync.status === "error") {
+    headline = `<div class="notice">${escapeHtml(sync.error)}</div>`;
+  } else if (sync.status === "cancelled") {
+    headline = `<div class="sync-line"><strong>Sincronización detenida</strong><span>${counts.done ?? 0} descargados</span></div>`;
+  } else if (foundCount === 0) {
+    headline = `<div class="sync-line"><strong>Tu biblioteca está al día</strong><span>${scan.scanned} revisados</span></div>
+      <p class="sync-sub">No hay artículos nuevos${limit && !scan.complete ? " entre tus bookmarks más recientes" : " en tus bookmarks"}.</p>`;
+  } else {
+    headline = `<div class="sync-line"><strong>Listo: ${counts.done ?? 0} artículo${counts.done === 1 ? "" : "s"} nuevo${counts.done === 1 ? "" : "s"} en tu biblioteca</strong><span>${counts.error ? `${counts.error} con error` : ""}</span></div>
+      ${progressBar(1, 1)}
+      <p class="sync-sub">${scanSummary}. <a href="#/?sort=downloaded">Ver en la biblioteca</a></p>`;
+  }
+  box.innerHTML = headline + (selected.length ? syncItemsHtml(selected) : "");
+}
+
 function connectEvents() {
   const source = new EventSource("/api/events");
   source.onmessage = (event) => {
     const previous = new Map(state.jobs.map((job) => [job.id, job.status]));
-    state.jobs = JSON.parse(event.data).jobs;
+    const payload = JSON.parse(event.data);
+    state.jobs = payload.jobs;
     renderJobs();
+    // En revision no re-renderizamos: perderia las casillas que el usuario destildo.
+    if (!(payload.sync?.status === "review" && state.sync?.status === "review")) renderSync(payload.sync);
+    state.sync = payload.sync;
 
     const finished = state.jobs.filter((job) => job.status === "done" && previous.has(job.id) && previous.get(job.id) !== "done");
     if (finished.length === 0) return;
@@ -1028,6 +1245,8 @@ window.addEventListener("scroll", () => {
   if (lastView === "library") state.libraryScroll = window.scrollY;
 }, { passive: true });
 
+loadSyncSettings();
+$("sync-limit").disabled = !$("sync-limit-on").checked;
 connectEvents();
 route();
 </script>
