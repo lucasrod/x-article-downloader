@@ -15,6 +15,7 @@ export function createArticleDocument({
   statusId,
   authorHandle,
   authorName,
+  authorAvatar = null,
   fetchedAt,
   title,
   slug,
@@ -28,6 +29,7 @@ export function createArticleDocument({
       status_id: statusId,
       author_handle: authorHandle,
       author_name: authorName,
+      author_avatar: authorAvatar,
       fetched_at: fetchedAt,
     },
     article: {

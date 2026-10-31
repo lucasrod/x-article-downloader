@@ -70,6 +70,7 @@ export async function extractArticle(url, timeout, options = {}) {
           statusId: extractStatusId(url),
           authorHandle: article.authorHandle,
           authorName: article.authorName,
+          authorAvatar: await readAuthorAvatar(page, article.authorHandle),
           fetchedAt: new Date().toISOString(),
           title: article.title,
           slug: slugify(article.title),
@@ -89,6 +90,25 @@ export async function extractArticle(url, timeout, options = {}) {
   } finally {
     await browser.close();
   }
+}
+
+// X recorta en circulo los avatares de personas (border-radius 9999px) y en
+// cuadrado redondeado los de organizaciones verificadas.
+export async function readAuthorAvatar(page, authorHandle) {
+  return page.evaluate((handle) => {
+    const root = document.querySelector('article[data-testid="tweet"]');
+    const container = (handle && root?.querySelector(`[data-testid="UserAvatar-Container-${handle}"]`))
+      ?? root?.querySelector('[data-testid^="UserAvatar-Container"]');
+    const image = container?.querySelector("img");
+    if (!image?.src) {
+      return null;
+    }
+    let round = false;
+    for (let node = image; node && node !== container.parentElement; node = node.parentElement) {
+      if (getComputedStyle(node).borderRadius === "9999px") round = true;
+    }
+    return { url: image.src, shape: round ? "circle" : "square" };
+  }, authorHandle?.replace(/^@/, "") ?? null).catch(() => null);
 }
 
 async function findArticleUrl(page) {

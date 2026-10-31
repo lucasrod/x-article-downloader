@@ -14,6 +14,7 @@
     "auth:x:cdp": "node ./src/auth/save-x-storage-state-cdp.js",
     "mcp": "node ./src/mcp/server.js",
     "web": "node ./src/web/server.js",
+    "web:avatars": "node ./src/web/backfill-avatars.js",
     "test:sample": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011'",
     "test:sample:json": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format md+json",
     "test:sample:bundle": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format bundle"

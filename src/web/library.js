@@ -121,6 +121,7 @@ async function indexArticle(dir, slug) {
     title,
     author_name: authorName,
     author_handle: authorHandle,
+    author_avatar: document.source.author_avatar ?? null,
     status_url: document.source.status_url,
     status_id: document.source.status_id ?? null,
     published_at: statusIdToDate(document.source.status_id),
@@ -199,6 +200,7 @@ function publicFields(doc) {
     title: doc.title,
     author_name: doc.author_name,
     author_handle: doc.author_handle,
+    author_avatar: doc.author_avatar,
     status_url: doc.status_url,
     published_at: doc.published_at,
     fetched_at: doc.fetched_at,
@@ -415,6 +417,7 @@ function buildFacets(matched, filters, now) {
   const authorBase = applyFilters(matched, filters, now, "author");
   const authorCounts = countBy(authorBase, (doc) => doc.author_handle);
   const authorNames = new Map(matched.map(({ doc }) => [doc.author_handle, doc.author_name]));
+  const authorAvatars = new Map(matched.map(({ doc }) => [doc.author_handle, doc.author_avatar]));
   for (const handle of filters.author) {
     if (!authorCounts.has(handle)) authorCounts.set(handle, 0);
   }
@@ -425,7 +428,7 @@ function buildFacets(matched, filters, now) {
 
   return {
     author: [...authorCounts.entries()]
-      .map(([value, count]) => ({ value, label: authorNames.get(value) || value, count }))
+      .map(([value, count]) => ({ value, label: authorNames.get(value) || value, avatar: authorAvatars.get(value) ?? null, count }))
       .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)),
     pub: datePresetCounts(applyFilters(matched, filters, now, "pub"), "published_at", now),
     len: LENGTH_BUCKETS.map((bucket) => ({ value: bucket.value, label: bucket.label, count: lenCounts.get(bucket.value) ?? 0 })),

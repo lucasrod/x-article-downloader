@@ -79,6 +79,12 @@ En la pagina **Agregar** (`#/agregar`), el boton **Sincronizar bookmarks** lee t
 
 Requiere `X_BROWSER_CDP_ENDPOINT` (ver abajo).
 
+La biblioteca muestra el avatar del autor (circulo para personas, cuadrado para organizaciones), que se guarda en `source.author_avatar` al descargar. Para completarlo en articulos bajados antes, con el navegador CDP abierto:
+
+```bash
+npm run web:avatars
+```
+
 ### Si X responde 403
 
 X bloquea el Chromium headless de Playwright (responde `403` con body vacio), aunque haya `storageState` valido. En ese caso usa tu navegador real via CDP:

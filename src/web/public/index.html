@@ -226,7 +226,13 @@
     .thumb { width: 84px; aspect-ratio: 1; }
   }
   .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--muted); font-size: 13px; }
-  .meta .author { color: var(--text); font-weight: 500; }
+  .meta .author { color: var(--text); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .avatar { width: 18px; height: 18px; flex: none; object-fit: cover; background: var(--border); border-radius: 50%; vertical-align: middle; }
+  .avatar.square { border-radius: 4px; }
+  .opt .avatar { width: 16px; height: 16px; margin-right: 6px; }
+  .opt .avatar.square { border-radius: 3px; }
+  .byline .avatar { width: 22px; height: 22px; margin-right: 6px; }
+  .byline .avatar.square { border-radius: 5px; }
   .meta .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
   .snippet { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .no-results { padding: 40px 0; text-align: center; color: var(--muted); }
@@ -624,7 +630,7 @@ function renderLibrary(params) {
 
   $("results").innerHTML = data.results.map((article) => {
     const meta = [
-      `<span class="author">${escapeHtml(article.author_name || article.author_handle)}</span>`,
+      `<span class="author">${avatarHtml(article.author_avatar)}${escapeHtml(article.author_name || article.author_handle)}</span>`,
       article.author_name ? `<span>${escapeHtml(article.author_handle)}</span>` : "",
       article.published_at ? `<span title="Publicado">${formatDate(article.published_at)}</span>` : "",
       `<span>${article.reading_minutes} min</span>`,
@@ -644,6 +650,12 @@ function renderLibrary(params) {
       </div>${thumb}
     </a></li>`;
   }).join("");
+}
+
+// Circulo para personas, cuadrado para organizaciones, como lo muestra X.
+function avatarHtml(avatar) {
+  if (!avatar?.url) return "";
+  return `<img class="avatar ${avatar.shape === "square" ? "square" : ""}" src="${escapeHtml(avatar.url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`;
 }
 
 function chipLabel(key, value) {
@@ -710,7 +722,7 @@ function multiFacetBody(key, options, params) {
   const items = visible.map((option) => {
     const checked = selected.has(option.value);
     const label = key === "author"
-      ? `${escapeHtml(option.label)} <small>${escapeHtml(option.value)}</small>`
+      ? `${avatarHtml(option.avatar)}${escapeHtml(option.label)} <small>${escapeHtml(option.value)}</small>`
       : escapeHtml(option.label);
     return `<label class="opt ${option.count === 0 && !checked ? "zero" : ""}">
       <input type="checkbox" data-multi="${key}" value="${escapeHtml(option.value)}" ${checked ? "checked" : ""}>
@@ -1180,7 +1192,7 @@ async function renderReader(slug) {
     <div class="reader">
       <article class="doc">
         <h1>${escapeHtml(summary.title)}</h1>
-        <div class="byline">${escapeHtml(byline)} · descargado ${formatDate(summary.fetched_at)} · ${summary.word_count.toLocaleString("es")} palabras</div>
+        <div class="byline">${avatarHtml(doc?.source.author_avatar)}${escapeHtml(byline)} · descargado ${formatDate(summary.fetched_at)} · ${summary.word_count.toLocaleString("es")} palabras</div>
         ${body}
       </article>
       <div class="panel">
