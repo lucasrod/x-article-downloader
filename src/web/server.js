@@ -251,7 +251,7 @@ function enqueueJobs(body) {
   }));
 
   jobs.unshift(...created);
-  jobs.splice(MAX_JOBS_KEPT);
+  trimFinishedJobs();
   broadcast();
   runQueue();
   return created;
@@ -321,7 +321,23 @@ async function runJob(job) {
   } finally {
     job.stage = null;
     job.finished_at = new Date().toISOString();
+    trimFinishedJobs();
     broadcast();
+  }
+}
+
+// Solo descarta terminados viejos: los que estan en cola o corriendo nunca se pierden.
+function trimFinishedJobs() {
+  let finished = 0;
+  for (let index = 0; index < jobs.length; index += 1) {
+    if (jobs[index].status !== "done" && jobs[index].status !== "error") {
+      continue;
+    }
+    finished += 1;
+    if (finished > MAX_JOBS_KEPT) {
+      jobs.splice(index, 1);
+      index -= 1;
+    }
   }
 }
 
