@@ -57,6 +57,40 @@ const MIGRATIONS = [
     PRIMARY KEY (folder_id, list_id)
   );
   `,
+  `
+  CREATE TABLE sources (
+    id TEXT PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
+    policy TEXT NOT NULL,
+    folders_imported_at TEXT,
+    last_synced_at TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE files (
+    sha256 TEXT PRIMARY KEY,
+    item_id TEXT REFERENCES items(id) ON DELETE SET NULL,
+    size INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0,
+    pages INTEGER,
+    text_chars INTEGER,
+    added_at TEXT NOT NULL
+  );
+  CREATE INDEX files_item ON files(item_id);
+  CREATE TABLE file_texts (
+    sha256 TEXT PRIMARY KEY REFERENCES files(sha256) ON DELETE CASCADE,
+    text TEXT NOT NULL
+  );
+  CREATE TABLE file_locations (
+    source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    rel_path TEXT NOT NULL,
+    sha256 TEXT NOT NULL REFERENCES files(sha256) ON DELETE CASCADE,
+    size INTEGER NOT NULL,
+    mtime_ms INTEGER NOT NULL,
+    PRIMARY KEY (source_id, rel_path)
+  );
+  `,
 ];
 
 export function createSqliteRepository(file) {
@@ -221,6 +255,88 @@ export function createSqliteRepository(file) {
 
     async deleteReadingList(id) {
       db.prepare("DELETE FROM reading_lists WHERE id = ?").run(id);
+    },
+
+    // ---------- carpetas de origen y archivos ----------
+
+    async listSources() {
+      return db.prepare("SELECT * FROM sources ORDER BY created_at, id").all().map((row) => ({
+        id: row.id,
+        path: row.path,
+        label: row.label,
+        policy: row.policy,
+        foldersImportedAt: row.folders_imported_at,
+        lastSyncedAt: row.last_synced_at,
+        createdAt: row.created_at,
+      }));
+    },
+
+    async saveSource(source) {
+      db.prepare(`
+        INSERT INTO sources (id, path, label, policy, folders_imported_at, last_synced_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (id) DO UPDATE SET label = excluded.label, policy = excluded.policy,
+          folders_imported_at = excluded.folders_imported_at, last_synced_at = excluded.last_synced_at`)
+        .run(source.id, source.path, source.label, source.policy, source.foldersImportedAt, source.lastSyncedAt, source.createdAt);
+    },
+
+    async deleteSource(id) {
+      db.prepare("DELETE FROM sources WHERE id = ?").run(id);
+    },
+
+    // Un archivo sin item (`itemId: null`) es uno que el usuario descarto.
+    async listFiles() {
+      return db.prepare("SELECT * FROM files ORDER BY added_at, sha256").all().map((row) => ({
+        sha256: row.sha256,
+        itemId: row.item_id,
+        size: row.size,
+        name: row.name,
+        archived: row.archived === 1,
+        pages: row.pages,
+        textChars: row.text_chars,
+        addedAt: row.added_at,
+      }));
+    },
+
+    async saveFiles(files) {
+      const upsert = db.prepare(`
+        INSERT INTO files (sha256, item_id, size, name, archived, pages, text_chars, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (sha256) DO UPDATE SET item_id = excluded.item_id, name = excluded.name,
+          archived = excluded.archived, pages = excluded.pages, text_chars = excluded.text_chars`);
+      transaction(() => {
+        for (const file of files) {
+          upsert.run(file.sha256, file.itemId, file.size, file.name, file.archived ? 1 : 0, file.pages, file.textChars, file.addedAt);
+        }
+      });
+    },
+
+    async deleteFiles(hashes) {
+      const remove = db.prepare("DELETE FROM files WHERE sha256 = ?");
+      transaction(() => {
+        for (const sha256 of hashes) remove.run(sha256);
+      });
+    },
+
+    async getFileText(sha256) {
+      return db.prepare("SELECT text FROM file_texts WHERE sha256 = ?").get(sha256)?.text ?? "";
+    },
+
+    async saveFileText(sha256, text) {
+      db.prepare("INSERT INTO file_texts (sha256, text) VALUES (?, ?) ON CONFLICT (sha256) DO UPDATE SET text = excluded.text").run(sha256, text);
+    },
+
+    async listLocations(sourceId = null) {
+      const rows = sourceId
+        ? db.prepare("SELECT * FROM file_locations WHERE source_id = ? ORDER BY rel_path").all(sourceId)
+        : db.prepare("SELECT * FROM file_locations ORDER BY source_id, rel_path").all();
+      return rows.map((row) => ({ sourceId: row.source_id, relPath: row.rel_path, sha256: row.sha256, size: row.size, mtimeMs: row.mtime_ms }));
+    },
+
+    async replaceLocations(sourceId, locations) {
+      const add = db.prepare("INSERT INTO file_locations (source_id, rel_path, sha256, size, mtime_ms) VALUES (?, ?, ?, ?, ?)");
+      transaction(() => {
+        db.prepare("DELETE FROM file_locations WHERE source_id = ?").run(sourceId);
+        for (const entry of locations) add.run(sourceId, entry.relPath, entry.sha256, entry.size, entry.mtimeMs);
+      });
     },
   };
 }

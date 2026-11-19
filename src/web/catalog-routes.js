@@ -8,7 +8,7 @@ import { organization } from "./catalog-search.js";
 
 const STATUS_BY_CODE = { invalid: 400, not_found: 404, conflict: 409 };
 
-export function createCatalogRoutes({ service, readJsonBody }) {
+export function createCatalogRoutes({ service, sources, readJsonBody }) {
   return async function routeCatalog({ method, parts, request }) {
     try {
       return await dispatch({ method, parts, request });
@@ -62,6 +62,26 @@ export function createCatalogRoutes({ service, readJsonBody }) {
       }
     }
 
+    if (resource === "sources") {
+      if (method === "GET" && parts.length === 2) return { sources: (await sources.listSources()).map(sourceView) };
+      if (method === "POST" && parts.length === 2) {
+        const input = await body();
+        const created = await sources.addSourceFolder({ path: input.path, label: input.label, policy: input.policy });
+        // Agregar una carpeta la sincroniza de inmediato; el progreso llega por eventos.
+        await sources.startSync(created.id);
+        return sourceView(created);
+      }
+      if (method === "PATCH" && parts.length === 3) {
+        const input = await body();
+        const changes = {};
+        if ("label" in input) changes.label = input.label;
+        if ("policy" in input) changes.policy = input.policy;
+        return sourceView(await sources.reviseSource(id, changes));
+      }
+      if (method === "DELETE" && parts.length === 3) return done(await sources.removeSource(id));
+      if (method === "POST" && parts.length === 4 && sub === "sync") return done(await sources.startSync(id));
+    }
+
     if (resource === "lists") {
       if (method === "POST" && parts.length === 2) return listView(await service.createReadingList(await body()));
       if (method === "PATCH" && parts.length === 3) {
@@ -84,7 +104,16 @@ export function createCatalogRoutes({ service, readJsonBody }) {
 
   async function describe(id) {
     const { item, folderIds, listIds } = await service.describeItem(id);
-    return { ...itemView(item), folder_ids: folderIds, list_ids: listIds };
+    const files = (await sources.describeFiles(id)).map((file) => ({
+      sha256: file.sha256,
+      name: file.name,
+      size: file.size,
+      pages: file.pages,
+      archived: file.archived,
+      searchable: (file.textChars ?? 0) > 0,
+      locations: file.locations,
+    }));
+    return { ...itemView(item), folder_ids: folderIds, list_ids: listIds, files };
   }
 }
 
@@ -115,6 +144,16 @@ function itemView(item) {
     updated_at: item.updatedAt,
   };
 }
+
+export const sourceView = (source) => ({
+  id: source.id,
+  path: source.path,
+  label: source.label,
+  policy: source.policy,
+  file_count: source.fileCount ?? 0,
+  last_synced_at: source.lastSyncedAt,
+  run: source.run ?? null,
+});
 
 const folderView = (folder) => ({ id: folder.id, name: folder.name, parent_id: folder.parentId });
 

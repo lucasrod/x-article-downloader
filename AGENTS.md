@@ -21,10 +21,14 @@ Mantener una pipeline X-first:
 - La biblioteca virtual vive en `src/library/` con arquitectura hexagonal:
   - `domain/`: Item, Carpeta, Lista de lectura y sus reglas. Puro: sin imports de Node, HTTP, SQLite ni filesystem.
   - `application/`: casos de uso (`library-service.js`) y puertos (`ports.js`).
-  - `adapters/`: SQLite (`sqlite-repository.js`) y fuentes de material capturado (`x-article-source.js`).
+  - `adapters/`: SQLite (`sqlite-repository.js`), articulos de X (`x-article-source.js`), lectura de carpetas (`fs-folder-scanner.js`), almacen por huella (`fs-file-store.js`) y texto de PDFs (`pdftotext-extractor.js`).
   - La direccion de dependencias es adaptadores → aplicacion → dominio. `src/web/catalog-routes.js` es el adaptador HTTP.
 - Un Item es unico; carpetas y listas de lectura solo lo referencian por id. Nunca duplicar un item para ubicarlo en dos lugares.
 - En un item con fuente, lo capturado (titulo, autores) lo dicta la fuente; lo curado (etiquetas, copia fisica, notas, carpetas, listas) es del usuario y sincronizar no lo pisa.
+- La identidad de un archivo es su SHA-256, no su ruta. Mover o renombrar un PDF conserva su item; editarlo en el lugar agrega una version al mismo item. La decision vive en `domain/folder-sync.js` (funcion pura).
+- Una carpeta de origen tiene politica `archive` (copia en `./library/store/<aa>/<sha256>.pdf`) o `reference` (solo indice). Sus subcarpetas se reflejan como carpetas de biblioteca solo en la primera sincronizacion.
+- Los PDFs sincronizados son items sin fuente: titulo, tipo y autores los corrige el usuario. Un item eliminado deja su archivo marcado como descartado y no vuelve a importarse.
+- `pdftotext` es opcional: sin el, los PDFs entran igual pero no son buscables por contenido.
 - El catalogo se guarda en `./library/library.sqlite` (o `LIBRARY_DB`). `article.json` sigue siendo la verdad del contenido de cada articulo.
 - No mezclar awareness social con el renderer Markdown.
 - Los comentarios por defecto se recolectan best-effort desde browser, no desde la API paga de X.

@@ -5,7 +5,32 @@ import { createDoc, loadArticleDocs, searchDocs } from "./library.js";
 // articulos de X aportan su texto desde disco; el catalogo aporta lo curado
 // (tipo, etiquetas, copia fisica, carpetas y listas).
 
-export async function searchCatalog({ root, service, params, now = Date.now() }) {
+// Docs de items sin articulo en disco. Normalizar el texto de un PDF es caro,
+// asi que se guarda mientras no cambien el item ni su archivo.
+const docCache = new Map();
+
+async function standaloneDoc(item, file, readFileText) {
+  const signature = `${item.updatedAt}:${file?.sha256 ?? ""}:${file?.textChars ?? ""}`;
+  const cached = docCache.get(item.id);
+  if (cached?.signature === signature) return cached.doc;
+
+  const text = file?.textChars ? await readFileText(file.sha256) : "";
+  const content = [item.notes, text].filter(Boolean).join("\n\n");
+  const words = text.match(/\S+/g)?.length ?? 0;
+  const doc = createDoc({
+    title: item.title,
+    content,
+    author_name: item.authors.join(", "),
+    published_at: item.year ? new Date(Date.UTC(item.year, 0, 1)).toISOString() : null,
+    fetched_at: item.createdAt,
+    words,
+    reading_minutes: words ? Math.max(1, Math.round(words / 230)) : null,
+  });
+  docCache.set(item.id, { signature, doc });
+  return doc;
+}
+
+export async function searchCatalog({ root, service, params, readFileText = async () => "", now = Date.now() }) {
   // Sincronizar al leer hace que tambien aparezca lo descargado por la CLI.
   await service.syncSources();
   const [articles, snapshot] = await Promise.all([loadArticleDocs(root), service.snapshot()]);
@@ -16,16 +41,11 @@ export async function searchCatalog({ root, service, params, now = Date.now() })
   }
 
   const selectedList = params.get("list");
-  const docs = snapshot.items.map((item) => {
+  const docs = await Promise.all(snapshot.items.map(async (item) => {
     const membership = snapshot.membership.get(item.id);
     const article = item.source ? articleByKey.get(item.source.key) : null;
-    const base = article ?? createDoc({
-      title: item.title,
-      content: item.notes,
-      author_name: item.authors.join(", "),
-      published_at: item.year ? new Date(Date.UTC(item.year, 0, 1)).toISOString() : null,
-      fetched_at: item.createdAt,
-    });
+    const file = snapshot.filesByItem.get(item.id)?.[0] ?? null;
+    const base = article ?? await standaloneDoc(item, file, readFileText);
     const inList = membership.lists.find((entry) => entry.id === selectedList);
     return {
       ...base,
@@ -40,8 +60,9 @@ export async function searchCatalog({ root, service, params, now = Date.now() })
       list_ids: membership.lists.map((entry) => entry.id),
       list_position: inList?.position ?? null,
       list_note: inList?.note ?? "",
+      file: file ? { name: file.name, size: file.size, pages: file.pages, archived: file.archived, available: file.available } : null,
     };
-  });
+  }));
 
   return { ...searchDocs(docs, params, now), ...organization(snapshot) };
 }

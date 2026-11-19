@@ -198,11 +198,23 @@ export function createLibraryService({ repository, sources = [], newId, now }) {
     // `folderScope` incluye las carpetas ancestro: filtrar por una carpeta
     // muestra tambien lo que esta en sus subcarpetas.
     async snapshot() {
-      const [items, folders, lists] = await Promise.all([
+      const [items, folders, lists, files, locations] = await Promise.all([
         repository.listItems(),
         repository.listFolders(),
         repository.listReadingLists(),
+        repository.listFiles(),
+        repository.listLocations(),
       ]);
+
+      // Archivos de cada item, del mas nuevo al mas viejo. `available` dice si
+      // hay de donde leerlo: el almacen o alguna ubicacion conocida en disco.
+      const located = new Set(locations.map((entry) => entry.sha256));
+      const filesByItem = new Map();
+      for (const file of [...files].reverse()) {
+        if (!file.itemId) continue;
+        if (!filesByItem.has(file.itemId)) filesByItem.set(file.itemId, []);
+        filesByItem.get(file.itemId).push({ ...file, available: file.archived || located.has(file.sha256) });
+      }
 
       const membership = new Map(items.map((item) => [item.id, { folderIds: [], folderScope: new Set(), lists: [] }]));
       for (const folder of folders) {
@@ -220,7 +232,7 @@ export function createLibraryService({ repository, sources = [], newId, now }) {
         });
       }
 
-      return { items, folders, lists, membership };
+      return { items, folders, lists, membership, filesByItem };
     },
   };
 }

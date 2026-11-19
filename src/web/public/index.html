@@ -321,6 +321,27 @@
   .doc .notes { white-space: pre-line; }
   .doc .hint { font: 14px var(--sans); color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; margin-top: 24px; }
   .btn.danger { color: var(--err); }
+  .pdf-frame { width: 100%; height: 84vh; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-top: 16px; display: block; }
+  .item-head { max-width: none; padding: 24px 28px; }
+  .item-head h1 { font-size: 26px; }
+  .item-head .byline { margin-bottom: 0; }
+  .item-head .notes { margin: 14px 0 0; font-size: 16px; }
+  .file-info { font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+  .file-info code { font: 12px var(--mono); word-break: break-all; color: var(--muted); }
+  .file-info .state { font-weight: 600; }
+  .file-info .state.ok { color: var(--ok); }
+  .file-info .state.warn { color: var(--warn); }
+  .sources { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .sources:empty { display: none; }
+  .source { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--bg); }
+  .source-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .source-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .source-head span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .source code { display: block; font: 12px var(--mono); color: var(--muted); word-break: break-all; margin: 2px 0 8px; }
+  .source .sync-sub { margin: 6px 0 0; }
+  .source-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .source-tools select { width: auto; font-size: 13px; padding: 3px 6px; }
+  .source-tools .spacer { flex: 1; }
 
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
@@ -452,6 +473,27 @@
         </div>
         <div class="form-error" id="form-error" hidden></div>
       </form>
+      <h2 class="section-title">O sincronizá una carpeta de PDFs</h2>
+      <div class="add-card">
+        <form class="item-form" id="source-form">
+          <label class="field">Ruta completa de la carpeta
+            <input type="text" id="source-path" placeholder="/Users/vos/Documents/Estudio" spellcheck="false" autocomplete="off" required>
+          </label>
+          <div class="add-row" style="margin-top:0">
+            <label class="field">Qué hacer con los archivos
+              <select id="source-policy">
+                <option value="archive">Archivar: guardar una copia en la biblioteca</option>
+                <option value="reference">Referenciar: solo indexar, leer desde la carpeta</option>
+              </select>
+            </label>
+            <button class="btn" type="submit">Agregar y sincronizar</button>
+          </div>
+          <p class="sync-sub" style="margin:0">La primera vez se crean carpetas iguales a las del disco. Después las organizás a tu gusto y los PDFs nuevos entran a “Sin clasificar”.</p>
+          <div class="form-error" id="source-error" hidden></div>
+        </form>
+        <div class="sources" id="sources"></div>
+      </div>
+
       <h2 class="section-title">O registrá un libro, paper o documento</h2>
       <form class="add-card item-form" id="register-form">
         <div id="register-fields"></div>
@@ -463,7 +505,7 @@
           <input type="text" id="register-tags" placeholder="cálculo, primer año">
         </label>
         <div class="add-row">
-          <span class="empty">La sincronización de PDFs llega en la próxima etapa.</span>
+          <span class="empty">Para material que no tenés en PDF.</span>
           <button class="btn" type="submit">Registrar en la biblioteca</button>
         </div>
         <div class="form-error" id="register-error" hidden></div>
@@ -569,6 +611,11 @@ const segmentsHtml = (segments) => segments
 function formatDate(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toLocaleString("es", { maximumFractionDigits: 1 })} MB`;
 }
 
 const formatNumber = (value) => new Intl.NumberFormat("es", { notation: "compact", maximumFractionDigits: 1 }).format(value);
@@ -748,7 +795,10 @@ function renderLibrary(params) {
       isArticle
         ? (article.published_at ? `<span title="Publicado">${formatDate(article.published_at)}</span>` : "")
         : (article.year ? `<span>${article.year}</span>` : ""),
-      article.reading_minutes ? `<span>${article.reading_minutes} min</span>` : "",
+      article.file
+        ? `<span class="tag">PDF</span>${article.file.pages ? `<span>${article.file.pages} pág.</span>` : ""}`
+        : (article.reading_minutes ? `<span>${article.reading_minutes} min</span>` : ""),
+      article.file && !article.file.available ? '<span title="El archivo no está en la carpeta ni archivado">Archivo no disponible</span>' : "",
       article.physical.owned ? `<span class="physical" title="${escapeHtml(article.physical.location ?? "En tu biblioteca física")}">En físico</span>` : "",
       article.lang !== "other" ? `<span class="tag">${article.lang}</span>` : "",
       article.image_count ? `<span>${article.image_count} img</span>` : "",
@@ -1361,6 +1411,112 @@ function renderJobs() {
   }).join("");
 }
 
+// ---------- carpetas de origen (PDFs) ----------
+
+const SOURCE_RUN_LABELS = { scanning: "Leyendo la carpeta…", hashing: "Identificando archivos", processing: "Archivando y leyendo texto" };
+
+function sourceSummary(summary) {
+  const parts = [`${summary.scanned} PDF${summary.scanned === 1 ? "" : "s"} en la carpeta`];
+  if (summary.created) parts.push(`${summary.created} nuevo${summary.created === 1 ? "" : "s"}`);
+  if (summary.new_versions) parts.push(`${summary.new_versions} con versión nueva`);
+  if (summary.moved) parts.push(`${summary.moved} movido${summary.moved === 1 ? "" : "s"} o renombrado${summary.moved === 1 ? "" : "s"}`);
+  if (summary.missing) parts.push(`${summary.missing} ya no está${summary.missing === 1 ? "" : "n"}`);
+  if (summary.failures) parts.push(`${summary.failures} no se pudieron procesar`);
+  if (!summary.created && !summary.new_versions && !summary.moved && !summary.missing) parts.push("sin cambios");
+  return parts.join(" · ");
+}
+
+function renderSources(sources) {
+  const previous = new Map((state.sources ?? []).map((source) => [source.id, source.run?.status]));
+  state.sources = sources;
+  $("sources").innerHTML = sources.map((source) => {
+    const run = source.run;
+    const busy = run && run.status in SOURCE_RUN_LABELS;
+    let status = "";
+    if (busy) {
+      status = `<div class="sync-line"><strong>${SOURCE_RUN_LABELS[run.status]}</strong><span>${run.total ? `${run.done} de ${run.total}` : ""}</span></div>
+        ${progressBar(run.done, run.total, !run.total)}`;
+    } else if (run?.status === "error") {
+      status = `<div class="notice">${escapeHtml(run.error)}</div>`;
+    } else if (run?.status === "done") {
+      status = `<p class="sync-sub">${escapeHtml(sourceSummary(run.summary))}. <a href="#/?sort=downloaded">Ver en la biblioteca</a></p>`;
+    }
+    return `<div class="source" data-source="${escapeHtml(source.id)}">
+      <div class="source-head"><strong>${escapeHtml(source.label)}</strong>
+        <span>${source.file_count} PDF${source.file_count === 1 ? "" : "s"}${source.last_synced_at ? ` · sincronizada ${formatDate(source.last_synced_at)}` : ""}</span></div>
+      <code>${escapeHtml(source.path)}</code>
+      ${status}
+      <div class="source-tools">
+        <select data-source-policy aria-label="Qué hacer con los archivos de ${escapeHtml(source.label)}" ${busy ? "disabled" : ""}>
+          <option value="archive" ${source.policy === "archive" ? "selected" : ""}>Archivar copia</option>
+          <option value="reference" ${source.policy === "reference" ? "selected" : ""}>Solo referenciar</option>
+        </select>
+        <span class="spacer"></span>
+        <button class="btn small ghost danger" type="button" data-source-remove ${busy ? "disabled" : ""}>Quitar</button>
+        <button class="btn small" type="button" data-source-sync ${busy ? "disabled" : ""}>Sincronizar</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Al terminar una sincronizacion, la biblioteca tiene items nuevos.
+  const finished = sources.some((source) => source.run?.status === "done" && previous.has(source.id) && previous.get(source.id) !== "done");
+  if (finished && lastView === "library") loadLibrary();
+}
+
+async function loadSources() {
+  renderSources((await api("/api/sources")).sources);
+}
+
+$("source-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const errorBox = $("source-error");
+  errorBox.hidden = true;
+  try {
+    await api("/api/sources", jsonInit("POST", { path: $("source-path").value, policy: $("source-policy").value }));
+    $("source-path").value = "";
+    await loadSources();
+  } catch (error) {
+    errorBox.textContent = error.message;
+    errorBox.hidden = false;
+  }
+});
+
+$("sources").addEventListener("click", async (event) => {
+  const id = event.target.closest("[data-source]")?.dataset.source;
+  if (!id) return;
+  try {
+    if (event.target.closest("[data-source-sync]")) {
+      await api(`/api/sources/${id}/sync`, { method: "POST" });
+    } else if (event.target.closest("[data-source-remove]")) {
+      const source = state.sources.find((candidate) => candidate.id === id);
+      const sure = await ask({
+        title: `Quitar la carpeta “${source.label}”`,
+        message: "Los items siguen en tu biblioteca y no se borra nada del disco. Los archivos que no estén archivados dejan de poder abrirse.",
+        ok: "Quitar", danger: true,
+      });
+      if (!sure) return;
+      await api(`/api/sources/${id}`, { method: "DELETE" });
+    } else {
+      return;
+    }
+    await loadSources();
+  } catch (error) {
+    toast(error.message);
+  }
+});
+
+$("sources").addEventListener("change", async (event) => {
+  if (!event.target.matches("[data-source-policy]")) return;
+  const id = event.target.closest("[data-source]").dataset.source;
+  try {
+    await api(`/api/sources/${id}`, jsonInit("PATCH", { policy: event.target.value }));
+    toast(event.target.value === "archive" ? "Se archivan en la próxima sincronización" : "Los nuevos solo se van a referenciar");
+  } catch (error) {
+    toast(error.message);
+  }
+  loadSources();
+});
+
 // ---------- registrar y editar items sin fuente ----------
 
 function itemFieldsHtml(item = {}) {
@@ -1439,17 +1595,37 @@ async function renderItem(id) {
   }
 
   const byline = [item.authors.join(", "), item.year].filter(Boolean).join(" · ");
+  const file = item.files[0] ?? null;
+  const available = file && (file.archived || file.locations.length > 0);
+  const pdfUrl = `/api/items/${encodeURIComponent(id)}/file`;
+  const header = `<p class="eyebrow">${escapeHtml(item.kind_label)}</p>
+        <h1>${escapeHtml(item.title)}</h1>
+        <div class="byline">${escapeHtml(byline || "Sin autor registrado")}</div>
+        ${item.notes ? `<p class="notes">${escapeHtml(item.notes)}</p>` : ""}`;
+  const main = file
+    ? `<div>
+        <article class="doc item-head">${header}</article>
+        ${available
+          ? `<iframe class="pdf-frame" src="${pdfUrl}" title="${escapeHtml(item.title)}"></iframe>`
+          : '<div class="notice" style="margin-top:16px">El archivo no está disponible: no está en su carpeta de origen ni archivado en la biblioteca. Si está en un disco externo, conectalo y volvé a sincronizar.</div>'}
+      </div>`
+    : `<article class="doc">${header}
+        <p class="hint">Este item no tiene archivo. Sirve para registrar algo que tenés en papel o que todavía no conseguiste en PDF.</p>
+      </article>`;
+  const fileBox = file ? `<div class="box"><h3>Archivo</h3><div class="file-info">
+          <span class="state ${available ? (file.archived ? "ok" : "") : "warn"}">${!available ? "No disponible" : file.archived ? "Archivado en la biblioteca" : "Referenciado desde su carpeta"}</span>
+          <span>${escapeHtml(file.name)} · ${formatBytes(file.size)}${file.pages ? ` · ${file.pages} página${file.pages === 1 ? "" : "s"}` : ""}</span>
+          <span>${file.searchable ? "Su texto es buscable." : "Sin texto buscable (escaneado o manuscrito)."}</span>
+          ${file.locations.map((location) => `<code>${escapeHtml(location)}</code>`).join("") || '<span class="empty">Ya no está en ninguna carpeta de origen.</span>'}
+          ${item.files.length > 1 ? `<span class="empty">${item.files.length - 1} versión(es) anterior(es) archivada(s).</span>` : ""}
+          ${available ? `<div class="actions" style="margin-top:6px"><a class="btn" href="${pdfUrl}" target="_blank" rel="noopener">Abrir en otra pestaña</a><a class="btn" href="${pdfUrl}?download">Bajar</a></div>` : ""}
+        </div></div>` : "";
   view.innerHTML = `
     <a class="back" href="${state.lastLibraryHash}">← Biblioteca</a>
     <div class="reader">
-      <article class="doc">
-        <p class="eyebrow">${escapeHtml(item.kind_label)}</p>
-        <h1>${escapeHtml(item.title)}</h1>
-        <div class="byline">${escapeHtml(byline || "Sin autor registrado")}</div>
-        ${item.notes ? `<p class="notes">${escapeHtml(item.notes)}</p>` : ""}
-        <p class="hint">Este item todavía no tiene archivo. Vas a poder asociarle un PDF cuando llegue la sincronización de carpetas.</p>
-      </article>
+      ${main}
       <div class="panel">
+        ${fileBox}
         <div class="box"><h3>Organizar</h3>${organizerHtml(item)}</div>
         <div class="box"><h3>Datos</h3>
           <form class="item-form" id="edit-item">
@@ -1478,7 +1654,9 @@ async function renderItem(id) {
   $("delete-item").addEventListener("click", async () => {
     const sure = await ask({
       title: `Eliminar “${item.title}”`,
-      message: "Se quita de la biblioteca y de todas las carpetas y listas. No se puede deshacer.",
+      message: file
+        ? "Se quita de la biblioteca y de todas las carpetas y listas. Su PDF no se borra del disco, y no vuelve a importarse al sincronizar."
+        : "Se quita de la biblioteca y de todas las carpetas y listas. No se puede deshacer.",
       ok: "Eliminar", danger: true,
     });
     if (!sure) return;
@@ -1683,6 +1861,8 @@ function connectEvents() {
     const payload = JSON.parse(event.data);
     state.jobs = payload.jobs;
     renderJobs();
+    // Mientras se elige una politica no se redibuja: cerraria el desplegable.
+    if (payload.sources && !document.activeElement?.matches?.("[data-source-policy]")) renderSources(payload.sources);
     // En revision no re-renderizamos: perderia las casillas que el usuario destildo.
     if (!(payload.sync?.status === "review" && state.sync?.status === "review")) renderSync(payload.sync);
     state.sync = payload.sync;
@@ -1890,6 +2070,7 @@ window.addEventListener("scroll", () => {
 }, { passive: true });
 
 loadSyncSettings();
+loadSources().catch(() => {});
 $("sync-limit").disabled = !$("sync-limit-on").checked;
 connectEvents();
 route();

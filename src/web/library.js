@@ -38,6 +38,7 @@ export const FEATURES = {
   images: "Con imágenes",
   embeds: "Con posts embebidos",
   comments: "Con comentarios",
+  file: "Con archivo PDF",
 };
 
 const SPANISH_HINTS = new Set(["que", "de", "la", "el", "los", "las", "por", "para", "con", "una", "como", "pero", "es", "en", "del", "se", "lo", "más", "mas", "muy", "porque", "también", "tambien"]);
@@ -261,6 +262,7 @@ function publicFields(doc) {
     folder_ids: doc.folder_ids ?? [],
     list_ids: doc.list_ids ?? [],
     list_note: doc.list_note ?? "",
+    file: doc.file ?? null,
   };
 }
 
@@ -434,6 +436,7 @@ function hasFeature(doc, feature) {
   if (feature === "images") return doc.image_count > 0;
   if (feature === "embeds") return doc.embed_count > 0;
   if (feature === "comments") return doc.reply_count > 0;
+  if (feature === "file") return Boolean(doc.file);
   return false;
 }
 

@@ -146,3 +146,127 @@ test("busqueda unificada: items manuales, filtros por carpeta, etiqueta y lista"
   assert.deepEqual(inList.results.map((r) => r.item_id), [paper.id, book.id]);
   assert.deepEqual(inList.facets.kind.map((option) => [option.value, option.count]), [["book", 1], ["paper", 1]]);
 });
+
+// ---------- etapa 2: carpetas de origen ----------
+
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { createSourceSyncService } from "../src/library/application/source-sync-service.js";
+import { createFileStore } from "../src/library/adapters/fs-file-store.js";
+import { createFolderScanner } from "../src/library/adapters/fs-folder-scanner.js";
+import { planFolderSync } from "../src/library/domain/folder-sync.js";
+import { createSourceFolder, titleFromFileName } from "../src/library/domain/source-folder.js";
+
+test("plan de sincronizacion: nuevo, movido, version nueva y descartado", () => {
+  const files = new Map([["h-a", { itemId: "item-a" }], ["h-b", { itemId: "item-b" }], ["h-x", { itemId: null }]]);
+  const plan = planFolderSync({
+    previous: [{ relPath: "a.pdf", sha256: "h-a" }, { relPath: "b.pdf", sha256: "h-b" }, { relPath: "c.pdf", sha256: "h-c" }],
+    scanned: [
+      { relPath: "sub/a.pdf", sha256: "h-a", size: 1, mtimeMs: 1 }, // movido
+      { relPath: "b.pdf", sha256: "h-b2", size: 1, mtimeMs: 2 },    // editado en el lugar
+      { relPath: "new.pdf", sha256: "h-n", size: 1, mtimeMs: 1 },   // nuevo
+      { relPath: "copy.pdf", sha256: "h-n", size: 1, mtimeMs: 1 },  // copia del nuevo
+      { relPath: "x.pdf", sha256: "h-x", size: 1, mtimeMs: 1 },     // descartado antes
+    ],
+    files,
+    elsewhere: new Set(),
+  });
+  assert.deepEqual(plan.create.map((entry) => entry.relPath), ["copy.pdf"]);
+  assert.deepEqual(plan.newVersions.map((entry) => [entry.relPath, entry.itemId, entry.replaces]), [["b.pdf", "item-b", "h-b"]]);
+  assert.deepEqual(plan.gone.sort(), ["h-b", "h-c"]);
+  assert.equal(plan.locations.length, 5);
+});
+
+test("carpeta de origen: ruta absoluta, sin superposiciones", () => {
+  const first = createSourceFolder([], { id: "s1", path: "/data/Estudio/", now: "t" });
+  assert.equal(first.path, "/data/Estudio");
+  assert.equal(first.label, "Estudio");
+  assert.equal(first.policy, "archive");
+  assert.throws(() => createSourceFolder([first], { id: "s2", path: "/data/Estudio/Calculo", now: "t" }), rejectsWith("conflict"));
+  assert.throws(() => createSourceFolder([first], { id: "s2", path: "/data", now: "t" }), rejectsWith("conflict"));
+  assert.throws(() => createSourceFolder([], { id: "s2", path: "Estudio", now: "t" }), rejectsWith("invalid"));
+  assert.equal(titleFromFileName("apuntes_calculo_1.pdf"), "apuntes calculo 1");
+});
+
+test("sincronizar una carpeta real: importa, archiva, sigue movimientos y no pisa lo organizado", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "biblioteca-"));
+  const folder = path.join(root, "Estudio");
+  await fs.mkdir(path.join(folder, "Calculo"), { recursive: true });
+  await fs.writeFile(path.join(folder, "Calculo", "apostol.pdf"), "contenido de apostol");
+  await fs.writeFile(path.join(folder, "notas.pdf"), "mis notas");
+  await fs.writeFile(path.join(folder, "ignorar.txt"), "no es pdf");
+
+  let counter = 0;
+  const repository = createSqliteRepository(":memory:");
+  const ports = { repository, newId: () => `id-${++counter}`, now: () => `2026-01-01T00:00:00.${String(++counter).padStart(3, "0")}Z` };
+  const library = createLibraryService(ports);
+  const store = createFileStore(path.join(root, "store"));
+  const sync = createSourceSyncService({
+    ...ports,
+    scanner: createFolderScanner(),
+    store,
+    textExtractor: { extract: async (file) => ({ text: await fs.readFile(file, "utf8"), pages: 1 }) },
+  });
+  const runSync = async (id) => (await sync.startSync(id)).finished;
+  const lastRun = async () => (await sync.listSources())[0].run;
+
+  await assert.rejects(sync.addSourceFolder({ path: path.join(root, "no-existe") }), rejectsWith("invalid"));
+  const source = await sync.addSourceFolder({ path: folder });
+  await runSync(source.id);
+  assert.deepEqual((await lastRun()).summary, { scanned: 2, created: 2, new_versions: 0, moved: 0, missing: 0, archived: 2, failures: 0, folders_imported: true });
+
+  // Las carpetas del disco se reflejan una vez, bajo el nombre de la carpeta de origen.
+  let snapshot = await library.snapshot();
+  assert.deepEqual(snapshot.folders.map((entry) => entry.name).sort(), ["Calculo", "Estudio"]);
+  const apostol = snapshot.items.find((item) => item.title === "apostol");
+  const calculo = snapshot.folders.find((entry) => entry.name === "Calculo");
+  assert.deepEqual(calculo.itemIds, [apostol.id]);
+  const [file] = snapshot.filesByItem.get(apostol.id);
+  assert.equal(file.archived, true);
+  assert.equal(await store.has(file.sha256), true);
+
+  // El texto del PDF es buscable.
+  const search = (query) => searchCatalog({ root: "/nonexistent", service: library, params: new URLSearchParams(query), readFileText: (sha) => repository.getFileText(sha) });
+  assert.deepEqual((await search("q=contenido+apostol")).results.map((result) => result.item_id), [apostol.id]);
+  assert.equal((await search("has=file")).count, 2);
+
+  // El usuario organiza: renombra el item y lo saca de la carpeta importada.
+  await library.reviseItem(apostol.id, { title: "Calculus, Vol. 1", kind: "book", tags: ["cálculo"] });
+  await library.takeOutOfFolder(calculo.id, { itemId: apostol.id });
+
+  // Mover el archivo en disco no crea un item nuevo ni rearma carpetas.
+  await fs.mkdir(path.join(folder, "Libros"));
+  await fs.rename(path.join(folder, "Calculo", "apostol.pdf"), path.join(folder, "Libros", "Apostol vol 1.pdf"));
+  await fs.writeFile(path.join(folder, "Libros", "nuevo.pdf"), "otro libro");
+  await runSync(source.id);
+  const second = (await lastRun()).summary;
+  assert.deepEqual([second.created, second.moved, second.folders_imported], [1, 1, false]);
+  snapshot = await library.snapshot();
+  assert.equal(snapshot.items.length, 3);
+  assert.equal(snapshot.items.find((item) => item.id === apostol.id).title, "Calculus, Vol. 1");
+  assert.deepEqual(snapshot.folders.map((entry) => entry.name).sort(), ["Calculo", "Estudio"]);
+  assert.equal(snapshot.membership.get(apostol.id).folderIds.length, 0);
+  assert.equal(snapshot.membership.get(snapshot.items.find((item) => item.title === "nuevo").id).folderIds.length, 0);
+  assert.deepEqual((await sync.describeFiles(apostol.id))[0].locations, [path.join(folder, "Libros", "Apostol vol 1.pdf")]);
+
+  // Editar el archivo en el lugar es una version nueva del mismo item.
+  await fs.writeFile(path.join(folder, "notas.pdf"), "mis notas, ahora anotadas");
+  await runSync(source.id);
+  assert.equal((await lastRun()).summary.new_versions, 1);
+  const notas = (await library.snapshot()).items.find((item) => item.title === "notas");
+  assert.equal((await sync.describeFiles(notas.id)).length, 2);
+
+  // Si el original desaparece, lo archivado se sigue pudiendo abrir.
+  await fs.rm(path.join(folder, "Libros", "Apostol vol 1.pdf"));
+  await runSync(source.id);
+  assert.equal((await sync.locateFile(apostol.id)).path, store.pathOf(file.sha256));
+
+  // Un item eliminado no vuelve a importarse aunque su PDF siga en la carpeta.
+  await library.removeItem(notas.id);
+  await runSync(source.id);
+  assert.equal((await lastRun()).summary.created, 0);
+  assert.equal((await library.snapshot()).items.some((item) => item.title === "notas"), false);
+
+  await fs.rm(root, { recursive: true, force: true });
+});

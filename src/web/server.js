@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
@@ -17,9 +18,13 @@ import {
 import { DEFAULT_DOWNLOAD_ROOT } from "../core/output.js";
 import { downloadArticle } from "../pipeline.js";
 import { createLibraryService } from "../library/application/library-service.js";
+import { createSourceSyncService } from "../library/application/source-sync-service.js";
+import { createFileStore } from "../library/adapters/fs-file-store.js";
+import { createFolderScanner } from "../library/adapters/fs-folder-scanner.js";
+import { detectPdfTextExtractor } from "../library/adapters/pdftotext-extractor.js";
 import { createSqliteRepository } from "../library/adapters/sqlite-repository.js";
 import { createXArticleSource, xArticleKey } from "../library/adapters/x-article-source.js";
-import { createCatalogRoutes } from "./catalog-routes.js";
+import { createCatalogRoutes, sourceView } from "./catalog-routes.js";
 import { searchCatalog } from "./catalog-search.js";
 import { loadArticleDocs } from "./library.js";
 import { createBookmarkSync } from "./sync.js";
@@ -32,13 +37,38 @@ const LIBRARY_DB = path.resolve(process.env.LIBRARY_DB || "./library/library.sql
 const MAX_JOBS_KEPT = 50;
 
 // Composicion de la biblioteca: dominio + casos de uso con sus adaptadores.
+const LIBRARY_STORE = path.join(path.dirname(LIBRARY_DB), "store");
+const repository = createSqliteRepository(LIBRARY_DB);
 const library = createLibraryService({
-  repository: createSqliteRepository(LIBRARY_DB),
+  repository,
   sources: [createXArticleSource({ loadArticles: () => loadArticleDocs(LIBRARY_ROOT) })],
   newId: randomUUID,
   now: () => new Date().toISOString(),
 });
-const routeCatalog = createCatalogRoutes({ service: library, readJsonBody });
+const textExtractor = await detectPdfTextExtractor();
+const sourceSync = createSourceSyncService({
+  repository,
+  scanner: createFolderScanner(),
+  store: createFileStore(LIBRARY_STORE),
+  textExtractor,
+  newId: randomUUID,
+  now: () => new Date().toISOString(),
+  onChange: () => scheduleSourceBroadcast(),
+});
+const routeCatalog = createCatalogRoutes({ service: library, sources: sourceSync, readJsonBody });
+
+// El progreso de una sincronizacion cambia por cada archivo: se agrupa para
+// no mandar cientos de eventos por segundo.
+let sourceBroadcastTimer = null;
+let sourceSnapshot = [];
+function scheduleSourceBroadcast() {
+  if (sourceBroadcastTimer) return;
+  sourceBroadcastTimer = setTimeout(async () => {
+    sourceBroadcastTimer = null;
+    sourceSnapshot = (await sourceSync.listSources()).map(sourceView);
+    broadcast();
+  }, 200);
+}
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -77,6 +107,9 @@ server.listen(PORT, HOST, () => {
   console.log(`x-article-downloader web en http://${HOST}:${PORT}`);
   console.log(`Articulos: ${LIBRARY_ROOT}`);
   console.log(`Catalogo: ${LIBRARY_DB}`);
+  console.log(`Almacen: ${LIBRARY_STORE}`);
+  scheduleSourceBroadcast();
+  if (!textExtractor) console.log("pdftotext no esta instalado: los PDFs no van a ser buscables por contenido.");
 });
 
 async function route(request, response) {
@@ -94,7 +127,20 @@ async function route(request, response) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/library") {
-    return sendJson(response, 200, await searchCatalog({ root: LIBRARY_ROOT, service: library, params: url.searchParams }));
+    return sendJson(response, 200, await searchCatalog({
+      root: LIBRARY_ROOT,
+      service: library,
+      params: url.searchParams,
+      readFileText: (sha256) => repository.getFileText(sha256),
+    }));
+  }
+
+  if (request.method === "GET" && parts[1] === "items" && parts[3] === "file" && parts.length === 4) {
+    const located = await sourceSync.locateFile(parts[2]);
+    if (!located) {
+      throw httpError(404, "El archivo de este item no está disponible. Si está en un disco externo, conectalo.");
+    }
+    return streamPdf(response, located, url.searchParams.has("download"));
   }
 
   const catalogResult = await routeCatalog({ method: request.method, parts, request });
@@ -446,7 +492,7 @@ function openEventStream(request, response) {
 }
 
 function eventPayload() {
-  return `data: ${JSON.stringify({ jobs: jobs.map(publicJob), sync: sync.snapshot() })}\n\n`;
+  return `data: ${JSON.stringify({ jobs: jobs.map(publicJob), sync: sync.snapshot(), sources: sourceSnapshot })}\n\n`;
 }
 
 function broadcast() {
@@ -482,6 +528,19 @@ async function sendFile(response, filePath, asAttachment = false) {
   }
   response.writeHead(200, headers);
   response.end(content);
+}
+
+// Los PDFs pueden pesar cientos de MB: se envian en streaming, sin cargarlos en memoria.
+async function streamPdf(response, { path: filePath, name }, asAttachment) {
+  const stat = await fs.stat(filePath);
+  const disposition = `${asAttachment ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(name)}`;
+  response.writeHead(200, {
+    "content-type": "application/pdf",
+    "content-length": stat.size,
+    "content-disposition": disposition,
+    "cache-control": "no-store",
+  });
+  createReadStream(filePath).on("error", () => response.destroy()).pipe(response);
 }
 
 function sendJson(response, status, payload) {
