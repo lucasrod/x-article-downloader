@@ -9,8 +9,15 @@ import { createDoc, loadArticleDocs, searchDocs } from "./library.js";
 // asi que se guarda mientras no cambien el item ni su archivo.
 const docCache = new Map();
 
+// "2016" o "2016-03" se ordenan y filtran como el comienzo de ese periodo.
+function publishedAt(published) {
+  if (!published) return null;
+  const [year, month = 1, day = 1] = published.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).toISOString();
+}
+
 async function standaloneDoc(item, file, readFileText) {
-  const signature = `${item.updatedAt}:${file?.sha256 ?? ""}:${file?.textChars ?? ""}`;
+  const signature = `${item.updatedAt}:${file?.sha256 ?? ""}:${file?.textChars ?? ""}:${file?.pages ?? ""}`;
   const cached = docCache.get(item.id);
   if (cached?.signature === signature) return cached.doc;
 
@@ -21,7 +28,10 @@ async function standaloneDoc(item, file, readFileText) {
     title: item.title,
     content,
     author_name: item.authors.join(", "),
-    published_at: item.year ? new Date(Date.UTC(item.year, 0, 1)).toISOString() : null,
+    published_at: publishedAt(item.published),
+    published: item.published,
+    lang: item.language,
+    pages: item.pages ?? file?.pages ?? null,
     fetched_at: item.createdAt,
     words,
     reading_minutes: words ? Math.max(1, Math.round(words / 230)) : null,
@@ -51,7 +61,6 @@ export async function searchCatalog({ root, service, params, readFileText = asyn
       ...base,
       item_id: item.id,
       kind: item.kind,
-      year: item.year,
       tags: item.tags,
       physical: item.physical,
       cover_url: item.cover ? `/api/covers/${item.cover.file}` : null,

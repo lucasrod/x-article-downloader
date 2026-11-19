@@ -10,12 +10,13 @@ import { organization, searchCatalog } from "../src/web/catalog-search.js";
 
 const rejectsWith = (code) => (error) => error instanceof DomainError && error.code === code;
 
-function setup(articles = []) {
+// `prefix` evita que dos tests compartan ids: la busqueda cachea docs por item.
+function setup(articles = [], prefix = "id") {
   let counter = 0;
   const service = createLibraryService({
     repository: createSqliteRepository(":memory:"),
     sources: [createXArticleSource({ loadArticles: async () => articles })],
-    newId: () => `id-${++counter}`,
+    newId: () => `${prefix}-${++counter}`,
     now: () => `2026-01-01T00:00:${String(counter).padStart(2, "0")}.000Z`,
   });
   return service;
@@ -132,8 +133,8 @@ test("lista de lectura persistida: orden, notas y limpieza al borrar un item", a
 
 test("busqueda unificada: items manuales, filtros por carpeta, etiqueta y lista", async () => {
   const service = setup();
-  const book = await service.registerItem({ kind: "book", title: "Álgebra lineal", authors: ["Strang"], year: 2016, tags: ["mate"], physical: { owned: true }, notes: "espacios vectoriales" });
-  const paper = await service.registerItem({ kind: "paper", title: "Attention", authors: ["Vaswani"], year: 2017 });
+  const book = await service.registerItem({ kind: "book", title: "Álgebra lineal", authors: ["Strang"], published: 2016, language: "ES", pages: 544, tags: ["mate"], physical: { owned: true }, notes: "espacios vectoriales" });
+  const paper = await service.registerItem({ kind: "paper", title: "Attention", authors: ["Vaswani"], published: "2017-06-12" });
   const folder = await service.createFolder({ name: "Mate" });
   await service.placeInFolder(folder.id, { itemId: book.id });
   const list = await service.createReadingList({ name: "Orden" });
@@ -382,4 +383,45 @@ test("tapa: dato curado, guardada por huella, sobrevive a sincronizar y pasa al 
   assert.deepEqual((await service.describeItem(copy.id)).item.cover, withCover.cover);
 
   assert.equal((await service.removeItemCover(copy.id)).cover, null);
+});
+
+test("item: fecha con la precision que se conozca, idioma como codigo y paginas", () => {
+  const item = createItem({ id: "a", kind: "book", title: "Cálculo", published: 2016, language: " ES ", pages: "320", now: "t" });
+  assert.equal(item.published, "2016");
+  assert.equal(item.language, "es");
+  assert.equal(item.pages, 320);
+  assert.equal(reviseItem(item, { published: "2016-03" }, "t2").published, "2016-03");
+  assert.equal(reviseItem(item, { published: "2016-02-29" }, "t2").published, "2016-02-29");
+  assert.equal(reviseItem(item, { published: "", language: null, pages: "" }, "t2").pages, null);
+  for (const published of ["2015-02-29", "2016-13", "16", "marzo 2016"]) {
+    assert.throws(() => reviseItem(item, { published }, "t2"), rejectsWith("invalid"), published);
+  }
+  assert.throws(() => reviseItem(item, { language: "español" }, "t2"), rejectsWith("invalid"));
+  assert.throws(() => reviseItem(item, { pages: 0 }, "t2"), rejectsWith("invalid"));
+  assert.throws(() => reviseItem(item, { pages: 12.5 }, "t2"), rejectsWith("invalid"));
+
+  const fromSource = createItem({ id: "x", kind: "article", title: "Hilo", source: { key: "x:1" }, now: "t" });
+  assert.throws(() => reviseItem(fromSource, { language: "en" }, "t2"), rejectsWith("invalid"), "lo descriptivo de un item con fuente no se edita");
+});
+
+test("busqueda: documentos con idioma cargado, fecha parcial y largo en paginas", async () => {
+  const service = setup([], "doc");
+  await service.registerItem({ kind: "book", title: "Cálculo", published: "2016-03", language: "pt", pages: 600 });
+  await service.registerItem({ kind: "notes", title: "Apuntes", pages: 12 });
+  await service.registerItem({ kind: "document", title: "Sin datos" });
+
+  const all = await searchCatalog({ root: "/nonexistent", service, params: new URLSearchParams() });
+  const book = all.results.find((result) => result.title === "Cálculo");
+  assert.equal(book.lang, "pt");
+  assert.equal(book.pages, 600);
+  assert.equal(book.published, "2016-03");
+  assert.equal(book.published_at, "2016-03-01T00:00:00.000Z");
+  assert.deepEqual(all.facets.lang.find((option) => option.value === "pt"), { value: "pt", label: "Portugués", count: 1 });
+  assert.equal(all.facets.len.find((option) => option.value === "long").count, 1);
+  assert.equal(all.facets.len.find((option) => option.value === "short").count, 1);
+
+  const longest = await searchCatalog({ root: "/nonexistent", service, params: new URLSearchParams({ sort: "longest" }) });
+  assert.deepEqual(longest.results.slice(0, 2).map((result) => result.title), ["Cálculo", "Apuntes"]);
+  const short = await searchCatalog({ root: "/nonexistent", service, params: new URLSearchParams({ len: "short" }) });
+  assert.deepEqual(short.results.map((result) => result.title), ["Apuntes"]);
 });

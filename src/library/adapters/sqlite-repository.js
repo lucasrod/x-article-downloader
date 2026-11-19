@@ -108,6 +108,14 @@ const MIGRATIONS = [
   `
   ALTER TABLE items ADD COLUMN cover TEXT;
   `,
+  // `published` reemplaza a `year`. La columna vieja queda sin usar para no
+  // romper un servidor anterior que siga abierto sobre la misma base.
+  `
+  ALTER TABLE items ADD COLUMN published TEXT;
+  ALTER TABLE items ADD COLUMN language TEXT;
+  ALTER TABLE items ADD COLUMN pages INTEGER;
+  UPDATE items SET published = CAST(year AS TEXT) WHERE year IS NOT NULL;
+  `,
 ];
 
 export function createSqliteRepository(file) {
@@ -137,7 +145,9 @@ export function createSqliteRepository(file) {
     kind: row.kind,
     title: row.title,
     authors: JSON.parse(row.authors),
-    year: row.year,
+    published: row.published,
+    language: row.language,
+    pages: row.pages,
     notes: row.notes,
     tags,
     physical: { owned: row.physical_owned === 1, location: row.physical_location, volumes: JSON.parse(row.physical_volumes) },
@@ -177,10 +187,11 @@ export function createSqliteRepository(file) {
 
     async saveItems(items) {
       const upsert = db.prepare(`
-        INSERT INTO items (id, kind, title, authors, year, notes, physical_owned, physical_location, physical_volumes, cover, source_key, source_ref, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO items (id, kind, title, authors, published, language, pages, notes, physical_owned, physical_location, physical_volumes, cover, source_key, source_ref, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (id) DO UPDATE SET
-          kind = excluded.kind, title = excluded.title, authors = excluded.authors, year = excluded.year,
+          kind = excluded.kind, title = excluded.title, authors = excluded.authors,
+          published = excluded.published, language = excluded.language, pages = excluded.pages,
           notes = excluded.notes, physical_owned = excluded.physical_owned, physical_location = excluded.physical_location,
           physical_volumes = excluded.physical_volumes, cover = excluded.cover,
           source_key = excluded.source_key, source_ref = excluded.source_ref, updated_at = excluded.updated_at`);
@@ -190,7 +201,7 @@ export function createSqliteRepository(file) {
       transaction(() => {
         for (const item of items) {
           upsert.run(
-            item.id, item.kind, item.title, JSON.stringify(item.authors), item.year, item.notes,
+            item.id, item.kind, item.title, JSON.stringify(item.authors), item.published, item.language, item.pages, item.notes,
             item.physical.owned ? 1 : 0, item.physical.location, JSON.stringify(item.physical.volumes ?? []),
             item.cover ? JSON.stringify(item.cover) : null,
             item.source?.key ?? null, item.source ? JSON.stringify(item.source.ref) : null,

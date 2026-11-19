@@ -17,11 +17,26 @@ export const DATE_PRESETS = {
   "365d": 365,
 };
 
+// Un articulo se mide en minutos de lectura; un documento, en paginas.
 export const LENGTH_BUCKETS = [
-  { value: "short", label: "Corto (<5 min)", max: 5 },
-  { value: "medium", label: "Medio (5–15 min)", max: 15 },
-  { value: "long", label: "Largo (>15 min)", max: Infinity },
+  { value: "short", label: "Corto (<5 min · <30 pág.)", max: 5, maxPages: 30 },
+  { value: "medium", label: "Medio (5–15 min · 30–150 pág.)", max: 15, maxPages: 150 },
+  { value: "long", label: "Largo (>15 min · >150 pág.)", max: Infinity, maxPages: Infinity },
 ];
+
+// Palabras de una pagina impresa tipica: sirve para comparar el largo de un
+// documento con el de un articulo al ordenar.
+const WORDS_PER_PAGE = 400;
+
+export const LANGUAGE_LABELS = {
+  es: "Español",
+  en: "Inglés",
+  pt: "Portugués",
+  fr: "Francés",
+  it: "Italiano",
+  de: "Alemán",
+  other: "Otro / sin detectar",
+};
 
 export const KIND_LABELS = {
   article: "Artículo de X",
@@ -167,6 +182,8 @@ export function createDoc(fields) {
     fetched_at: null,
     words: 0,
     reading_minutes: null,
+    pages: null,
+    published: null,
     image_count: 0,
     thumbnail: null,
     embed_count: 0,
@@ -175,7 +192,8 @@ export function createDoc(fields) {
     ...fields,
     content: fields.content ?? "",
     author_key: fields.author_handle || fields.author_name || "",
-    lang: detectLanguage(contentNorm),
+    // El idioma cargado a mano gana; si no hay, se detecta del texto.
+    lang: fields.lang || detectLanguage(contentNorm),
     titleNorm,
     titleMap,
     contentNorm,
@@ -248,6 +266,8 @@ function publicFields(doc) {
     fetched_at: doc.fetched_at,
     words: doc.words,
     reading_minutes: doc.reading_minutes,
+    pages: doc.pages ?? null,
+    published: doc.published ?? null,
     image_count: doc.image_count,
     thumbnail: doc.thumbnail,
     embed_count: doc.embed_count,
@@ -255,7 +275,6 @@ function publicFields(doc) {
     lang: doc.lang,
     item_id: doc.item_id ?? null,
     kind: doc.kind,
-    year: doc.year ?? null,
     tags: doc.tags ?? [],
     physical: doc.physical ?? { owned: false, location: null, volumes: [] },
     cover_url: doc.cover_url ?? null,
@@ -428,10 +447,15 @@ function matchesDate(iso, filter, now) {
   return true;
 }
 
-function lengthBucket(minutes) {
-  if (minutes == null) return null;
-  return LENGTH_BUCKETS.find((bucket) => minutes < bucket.max || bucket.max === Infinity).value;
+function lengthBucket(doc) {
+  if (doc.pages != null) {
+    return LENGTH_BUCKETS.find((bucket) => doc.pages < bucket.maxPages || bucket.maxPages === Infinity).value;
+  }
+  if (doc.reading_minutes == null) return null;
+  return LENGTH_BUCKETS.find((bucket) => doc.reading_minutes < bucket.max || bucket.max === Infinity).value;
 }
+
+const sizeOf = (doc) => (doc.pages != null ? doc.pages * WORDS_PER_PAGE : doc.words);
 
 function hasFeature(doc, feature) {
   if (feature === "images") return doc.image_count > 0;
@@ -444,7 +468,7 @@ function hasFeature(doc, feature) {
 const PREDICATES = {
   author: (doc, values) => values.length === 0 || values.includes(doc.author_key),
   pub: (doc, filter, now) => matchesDate(doc.published_at, filter, now),
-  len: (doc, values) => values.length === 0 || values.includes(lengthBucket(doc.reading_minutes)),
+  len: (doc, values) => values.length === 0 || values.includes(lengthBucket(doc)),
   lang: (doc, values) => values.length === 0 || values.includes(doc.lang),
   has: (doc, values) => values.every((feature) => hasFeature(doc, feature)),
   dl: (doc, filter, now) => matchesDate(doc.fetched_at, filter, now),
@@ -488,7 +512,7 @@ function buildFacets(matched, filters, now) {
     if (!authorCounts.has(handle)) authorCounts.set(handle, 0);
   }
 
-  const lenCounts = countBy(applyFilters(matched, filters, now, "len"), (doc) => lengthBucket(doc.reading_minutes));
+  const lenCounts = countBy(applyFilters(matched, filters, now, "len"), (doc) => lengthBucket(doc));
   const langCounts = countBy(applyFilters(matched, filters, now, "lang"), (doc) => doc.lang);
   const hasBase = applyFilters(matched, filters, now, "has");
   const kindCounts = countBy(applyFilters(matched, filters, now, "kind"), (doc) => doc.kind);
@@ -508,8 +532,8 @@ function buildFacets(matched, filters, now) {
       .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)),
     pub: datePresetCounts(applyFilters(matched, filters, now, "pub"), "published_at", now),
     len: LENGTH_BUCKETS.map((bucket) => ({ value: bucket.value, label: bucket.label, count: lenCounts.get(bucket.value) ?? 0 })),
-    lang: [["es", "Español"], ["en", "Inglés"], ["other", "Otro / sin detectar"]]
-      .map(([value, label]) => ({ value, label, count: langCounts.get(value) ?? 0 })),
+    lang: [...new Set(["es", "en", ...langCounts.keys(), ...filters.lang, "other"])]
+      .map((value) => ({ value, label: LANGUAGE_LABELS[value] ?? value, count: langCounts.get(value) ?? 0 })),
     has: Object.entries(FEATURES).map(([value, label]) => {
       const others = filters.has.filter((feature) => feature !== value);
       const base = hasBase.filter(({ doc }) => others.every((feature) => hasFeature(doc, feature)));
@@ -537,8 +561,8 @@ const SORTERS = {
   newest: byDate("published_at", -1),
   oldest: byDate("published_at", 1),
   downloaded: byDate("fetched_at", -1),
-  longest: (left, right) => right.doc.words - left.doc.words,
-  shortest: (left, right) => left.doc.words - right.doc.words,
+  longest: (left, right) => sizeOf(right.doc) - sizeOf(left.doc),
+  shortest: (left, right) => sizeOf(left.doc) - sizeOf(right.doc),
   author: (left, right) => (left.doc.author_name || left.doc.author_handle)
     .localeCompare(right.doc.author_name || right.doc.author_handle),
   title: (left, right) => left.doc.title.localeCompare(right.doc.title),

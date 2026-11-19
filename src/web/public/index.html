@@ -651,6 +651,17 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Fecha cargada a mano con la precision que se conozca: "2016", "2016-03", "2016-03-14".
+function formatPublished(published) {
+  if (!published) return "";
+  const [year, month, day] = published.split("-").map(Number);
+  if (!month) return String(year);
+  const date = new Date(Date.UTC(year, month - 1, day || 1));
+  return date.toLocaleDateString("es", { timeZone: "UTC", ...(day ? { day: "numeric" } : {}), month: "short", year: "numeric" });
+}
+
+const LANGUAGE_NAMES = { es: "Español", en: "Inglés", pt: "Portugués", fr: "Francés", it: "Italiano", de: "Alemán" };
+
 function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toLocaleString("es", { maximumFractionDigits: 1 })} MB`;
@@ -832,9 +843,10 @@ function renderLibrary(params) {
       article.author_name && article.author_handle ? `<span>${escapeHtml(article.author_handle)}</span>` : "",
       isArticle
         ? (article.published_at ? `<span title="Publicado">${formatDate(article.published_at)}</span>` : "")
-        : (article.year ? `<span>${article.year}</span>` : ""),
-      article.file
-        ? `<span class="tag">PDF</span>${article.file.pages ? `<span>${article.file.pages} pág.</span>` : ""}`
+        : (article.published ? `<span title="Publicado">${formatPublished(article.published)}</span>` : ""),
+      article.file ? '<span class="tag">PDF</span>' : "",
+      article.pages
+        ? `<span>${article.pages} pág.</span>`
         : (article.reading_minutes ? `<span>${article.reading_minutes} min</span>` : ""),
       article.file && !article.file.available ? '<span title="El archivo no está en la carpeta ni archivado">Archivo no disponible</span>' : "",
       article.physical.owned ? `<span class="physical" title="${escapeHtml(physicalTitle(article.physical))}">En físico${article.physical.volumes?.length > 1 ? ` · ${article.physical.volumes.length} tomos` : ""}</span>` : "",
@@ -1318,7 +1330,7 @@ function searchItemsFor(input) {
     if (input.value.trim() !== query) return;
     const results = data.results.filter((result) => result.item_id !== ownId).slice(0, 6);
     picker.innerHTML = results.map((result) => `<button type="button" data-pick="${escapeHtml(result.item_id)}" data-pick-title="${escapeHtml(result.title)}" data-pick-source="${result.has_source}">
-        ${escapeHtml(result.title)}<small>${escapeHtml([KIND_LABELS[result.kind] ?? result.kind, result.author_name, result.year].filter(Boolean).join(" · "))}</small>
+        ${escapeHtml(result.title)}<small>${escapeHtml([KIND_LABELS[result.kind] ?? result.kind, result.author_name, result.published?.slice(0, 4)].filter(Boolean).join(" · "))}</small>
       </button>`).join("") || '<div class="empty">Sin coincidencias.</div>';
   }, 180);
 }
@@ -1807,8 +1819,18 @@ function itemFieldsHtml(item = {}) {
       <label class="field">Tipo
         <select name="kind">${kinds.map(([value, label]) => `<option value="${value}" ${item.kind === value ? "selected" : ""}>${label}</option>`).join("")}</select>
       </label>
-      <label class="field">Año
-        <input type="text" name="year" inputmode="numeric" value="${escapeHtml(item.year ?? "")}" placeholder="2019">
+      <label class="field">Fecha de publicación
+        <input type="text" name="published" value="${escapeHtml(item.published ?? "")}" placeholder="2019, 2019-03 o 2019-03-14" pattern="\\d{4}(-\\d{2}(-\\d{2})?)?" title="Año, año-mes o año-mes-día">
+      </label>
+      <label class="field">Idioma
+        <select name="language">
+          <option value="">Sin indicar</option>
+          ${Object.entries(LANGUAGE_NAMES).map(([value, label]) => `<option value="${value}" ${item.language === value ? "selected" : ""}>${label}</option>`).join("")}
+          ${item.language && !LANGUAGE_NAMES[item.language] ? `<option value="${escapeHtml(item.language)}" selected>${escapeHtml(item.language)}</option>` : ""}
+        </select>
+      </label>
+      <label class="field">Páginas
+        <input type="number" name="pages" min="1" step="1" value="${escapeHtml(item.pages ?? "")}" placeholder="${escapeHtml(item.file_pages ? `${item.file_pages} (del PDF)` : "320")}">
       </label>
     </div>
     <label class="field">Título
@@ -1830,7 +1852,9 @@ function readItemFields(form) {
     kind: fields.kind,
     title: fields.title,
     authors: splitCommas(fields.authors),
-    year: fields.year.trim() || null,
+    published: fields.published.trim() || null,
+    language: fields.language || null,
+    pages: fields.pages ? Number(fields.pages) : null,
     notes: fields.notes,
   };
 }
@@ -1916,7 +1940,13 @@ async function renderItem(id) {
     return;
   }
 
-  const byline = [item.authors.join(", "), item.year].filter(Boolean).join(" · ");
+  const pages = item.pages ?? item.files[0]?.pages ?? null;
+  const byline = [
+    item.authors.join(", "),
+    formatPublished(item.published),
+    LANGUAGE_NAMES[item.language] ?? item.language,
+    pages ? `${pages} pág.` : "",
+  ].filter(Boolean).join(" · ");
   const file = item.files[0] ?? null;
   const available = file && (file.archived || file.locations.length > 0);
   const pdfUrl = `/api/items/${encodeURIComponent(id)}/file`;
@@ -1960,7 +1990,7 @@ async function renderItem(id) {
         </div>
         <div class="box"><h3>Datos</h3>
           <form class="item-form" id="edit-item">
-            ${itemFieldsHtml(item)}
+            ${itemFieldsHtml({ ...item, file_pages: item.files[0]?.pages })}
             <div class="form-error" id="edit-error" hidden></div>
             <div class="add-row" style="margin-top:0">
               <button class="btn small danger" type="button" id="delete-item">Eliminar de la biblioteca</button>

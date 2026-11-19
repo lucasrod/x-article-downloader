@@ -175,9 +175,11 @@ const relationTypes = () => Object.entries(RELATION_TYPES)
 // Solo pasan al dominio los campos que el cliente mando.
 function itemInput(body) {
   const input = {};
-  for (const field of ["kind", "title", "authors", "year", "notes", "tags", "physical"]) {
+  for (const field of ["kind", "title", "authors", "published", "language", "pages", "notes", "tags", "physical"]) {
     if (field in body) input[field] = body[field];
   }
+  // Clientes viejos mandan solo el año.
+  if ("year" in body && !("published" in body)) input.published = body.year;
   return input;
 }
 
@@ -188,7 +190,9 @@ function itemView(item) {
     kind_label: KIND_LABELS[item.kind] ?? item.kind,
     title: item.title,
     authors: item.authors,
-    year: item.year,
+    published: item.published,
+    language: item.language,
+    pages: item.pages,
     notes: item.notes,
     tags: item.tags,
     physical: item.physical,
