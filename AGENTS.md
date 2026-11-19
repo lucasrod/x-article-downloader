@@ -16,8 +16,28 @@ Mantener una pipeline X-first:
 - Extraer desde la URL publica del `status`, no desde `x.com/i/article/...`.
 - Mantener el parseo de X en `src/core/extract.js`.
 - Mantener renderers independientes en `src/core/*`.
-- Mantener providers separados en `src/providers/*`.
+- Mantener providers separados en `src/providers/*` (incluye `x-bookmarks.js`, que lee los bookmarks via CDP).
+- La web vive en `src/web/`: `server.js` (API + cola), `library.js` (indice y busqueda), `sync.js` (sincronizacion de bookmarks).
+- La biblioteca virtual vive en `src/library/` con arquitectura hexagonal:
+  - `domain/`: Item, Carpeta, Lista de lectura y sus reglas. Puro: sin imports de Node, HTTP, SQLite ni filesystem.
+  - `application/`: casos de uso (`library-service.js`) y puertos (`ports.js`).
+  - `adapters/`: SQLite (`sqlite-repository.js`), articulos de X (`x-article-source.js`), lectura de carpetas (`fs-folder-scanner.js`), almacen por huella (`fs-file-store.js`) y texto de PDFs (`pdftotext-extractor.js`).
+  - La direccion de dependencias es adaptadores → aplicacion → dominio. `src/web/catalog-routes.js` es el adaptador HTTP.
+- Un Item es unico; carpetas y listas de lectura solo lo referencian por id. Nunca duplicar un item para ubicarlo en dos lugares.
+- Una obra anillada o encuadernada en varios tomos es un solo item: los tomos son una lista dentro de su copia fisica (`physical.volumes`), cada uno con ubicacion opcional.
+- En un item con fuente, lo capturado (titulo, autores) lo dicta la fuente; lo curado (etiquetas, copia fisica, notas, carpetas, listas) es del usuario y sincronizar no lo pisa.
+- La identidad de un archivo es su SHA-256, no su ruta. Mover o renombrar un PDF conserva su item; editarlo en el lugar agrega una version al mismo item. La decision vive en `domain/folder-sync.js` (funcion pura).
+- Una carpeta de origen tiene politica `archive` (copia en `./library/store/<aa>/<sha256>.pdf`) o `reference` (solo indice). Sus subcarpetas se reflejan como carpetas de biblioteca solo en la primera sincronizacion.
+- Los PDFs sincronizados son items sin fuente: titulo, tipo y autores los corrige el usuario. Un item eliminado deja su archivo marcado como descartado y no vuelve a importarse.
+- Un item sin fuente tiene fecha de publicacion con la precision conocida (`published`: `2016`, `2016-03` o `2016-03-14`), idioma (`language`, codigo ISO 639) y paginas (`pages`). Si tiene PDF, las paginas y el idioma salen del archivo mientras no se carguen a mano. El largo de un documento se mide en paginas; el de un articulo de X, en minutos.
+- La tapa de un item es curada (`item.cover`): una imagen guardada por huella en `./library/covers/<sha256>.<ext>` (`adapters/fs-cover-store.js`), con su origen (URL o "pagina 1 del PDF"). Se sube por `PUT /api/items/<id>/cover`; sincronizar no la pisa y al unir items el que queda conserva la suya o toma la del otro.
+- `pdftotext` es opcional: sin el, los PDFs entran igual pero no son buscables por contenido.
+- Una Relacion es una arista con tipo entre dos items (`domain/relation.js`): requiere, continua, es parte de, cita, se relaciona con. Los tipos que expresan orden no admiten ciclos; "se relaciona con" no tiene direccion. El grafo son los items con alguna relacion.
+- Unir dos items conserva uno y le pasa archivos, etiquetas, carpetas, listas y relaciones del otro. Un item con fuente no puede ser el absorbido.
+- El catalogo se guarda en `./library/library.sqlite` (o `LIBRARY_DB`). `article.json` sigue siendo la verdad del contenido de cada articulo.
+- `./library/` es un repo git propio y privado, separado de este repo publico. Versiona `catalog/` (snapshot del catalogo: un JSON por item, mas carpetas, listas, relaciones, carpetas de origen y archivos) y `covers/`. La base, los PDFs (`store/`, `inbox/`) y los respaldos quedan fuera. El servidor reexporta el snapshot despues de cada escritura (`application/catalog-snapshot.js`, `adapters/fs-catalog-store.js`); `npm run library:export` y `npm run library:import` lo hacen a mano, y `import` solo carga sobre un catalogo vacio.
 - No mezclar awareness social con el renderer Markdown.
+- Los comentarios por defecto se recolectan best-effort desde browser, no desde la API paga de X.
 
 ## Defaults del producto
 
@@ -25,13 +45,16 @@ Mantener una pipeline X-first:
 - `--images embed`
 - `--embedded-posts quote`
 - `--signals none`
-- sin `--output`: `./tmp/<slug>-remote-images.*`
-- con `--images download`: sufijo `-local-images`
+- `--comments`: `--signals x-basic --x-provider browser --x-replies best-effort`
+- sin `--output`: `./downloads/articles/<slug>/article.*`
+- `bundle`: escribe directo en `./downloads/articles/<slug>/`
+- con `--images download`: assets en `./downloads/articles/<slug>/assets/`
 
 ## Contrato
 
 - El schema vive en `src/core/article-schema.js`.
 - `signals.provider_trace` siempre debe explicar intentos y fallos parciales.
+- Los comentarios/replies viven en `signals.conversation` y `evidence_items`, no en el Markdown.
 - Si faltan credenciales, devolver salida parcial en vez de romper la CLI.
 - `bundle` debe seguir siendo legible por humanos y util para agentes.
 - El servidor MCP actual es `stdio` y expone tools + resources.
@@ -41,6 +64,8 @@ Mantener una pipeline X-first:
 
 - `node ./src/cli.js '<status-url>'`
 - `node ./src/cli.js '<status-url>' --format md+json`
-- `node ./src/cli.js '<status-url>' --format bundle --images download --chunk headings`
+- `node ./src/cli.js '<status-url>' --format bundle --images download`
 - `node ./src/cli.js '<status-url>' --format json --signals x-basic --x-provider x-api`
 - `node ./src/mcp/server.js`
+- `npm run web` y abrir `http://127.0.0.1:4173`
+- `npm test` (dominio, casos de uso y busqueda de la biblioteca)

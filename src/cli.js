@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import path from "node:path";
 import process from "node:process";
 import {
   BRIEF_MODES,
@@ -13,9 +12,7 @@ import {
   X_QUOTES_MODES,
   X_REPLIES_MODES,
 } from "./core/article-schema.js";
-import { extractArticle } from "./core/extract.js";
-import { defaultOutputPath } from "./core/output.js";
-import { prepareDocument, writePreparedOutput } from "./pipeline.js";
+import { downloadArticle } from "./pipeline.js";
 
 const HELP = `x-article-downloader
 
@@ -30,13 +27,17 @@ Opciones:
   --embedded-posts <quote|link|omit> Como representar posts embebidos (default: quote)
   --assets-dir <ruta>                Directorio de assets para imagenes descargadas
   --signals <none|x-basic|x-full>    Enriquecimiento social (default: none)
-  --x-provider <x-api|grok|hybrid>   Provider para X (default: hybrid)
+  --comments                         Traer replies visibles debajo del status
+  --x-provider <browser|x-api|grok|hybrid>
+                                     Provider para X (default: hybrid)
   --x-replies <none|api|best-effort> Replies a incluir (default: none)
   --x-quotes <none|api>              Quotes a incluir (default: none)
   --brief <none|short|full>          Brief social (default: none)
   --chunk <none|headings>            Chunks JSONL (default: none)
   --x-bearer-token-env <ENV_NAME>    Env var para Bearer Token de X (default: X_BEARER_TOKEN)
   --grok-api-key-env <ENV_NAME>      Env var para API key de xAI (default: XAI_API_KEY)
+  --browser-storage-state <ruta>     Storage state de Playwright para una sesion X logueada
+  --browser-cdp-endpoint <url>       Endpoint CDP de un Chromium/Brave ya abierto (default: X_BROWSER_CDP_ENDPOINT)
   --timeout <ms>                     Timeout de navegacion (default: 120000)
   --help, -h                         Mostrar ayuda
 `;
@@ -59,27 +60,7 @@ async function main() {
   assertEnum("brief", options.brief, BRIEF_MODES);
   assertEnum("chunk", options.chunk, CHUNK_MODES);
 
-  const article = await extractArticle(options.url, options.timeout);
-  const outputPath = path.resolve(options.output ?? defaultOutputPath(article, options.format, options.images));
-  const assetsDir = options.images === "download"
-    ? path.resolve(
-        options.assetsDir
-          ?? path.join(
-            options.format === "bundle" ? outputPath : path.dirname(outputPath),
-            options.format === "bundle"
-              ? "assets"
-              : `${path.basename(outputPath, path.extname(outputPath))}.assets`,
-          ),
-      )
-    : null;
-
-  const prepared = await prepareDocument(article, {
-    ...options,
-    outputPath,
-    assetsDir,
-  });
-
-  await writePreparedOutput(prepared);
+  const { prepared, assetsDir } = await downloadArticle(options);
   printSummary(prepared, assetsDir);
 }
 
@@ -91,6 +72,7 @@ function parseArgs(argv) {
     images: "embed",
     embeddedPosts: "quote",
     assetsDir: null,
+    comments: false,
     signals: "none",
     xProvider: "hybrid",
     xReplies: "none",
@@ -99,6 +81,8 @@ function parseArgs(argv) {
     chunk: "none",
     bearerTokenEnv: "X_BEARER_TOKEN",
     grokApiKeyEnv: "XAI_API_KEY",
+    browserStorageState: process.env.X_BROWSER_STORAGE_STATE || null,
+    browserCdpEndpoint: process.env.X_BROWSER_CDP_ENDPOINT || null,
     timeout: 120000,
     help: false,
   };
@@ -146,6 +130,14 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (token === "--comments") {
+      options.comments = true;
+      options.signals = options.signals === "none" ? "x-basic" : options.signals;
+      options.xProvider = options.xProvider === "hybrid" ? "browser" : options.xProvider;
+      options.xReplies = options.xReplies === "none" ? "best-effort" : options.xReplies;
+      continue;
+    }
+
     if (token === "--x-provider") {
       options.xProvider = readValue(argv, ++index, token);
       continue;
@@ -181,6 +173,16 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (token === "--browser-storage-state") {
+      options.browserStorageState = readValue(argv, ++index, token);
+      continue;
+    }
+
+    if (token === "--browser-cdp-endpoint") {
+      options.browserCdpEndpoint = readValue(argv, ++index, token);
+      continue;
+    }
+
     if (token === "--timeout") {
       options.timeout = Number(readValue(argv, ++index, token));
       continue;
@@ -191,6 +193,13 @@ function parseArgs(argv) {
 
   if (Number.isNaN(options.timeout) || options.timeout <= 0) {
     throw new Error("`--timeout` debe ser un entero positivo.");
+  }
+
+  if (options.signals === "none" && (options.xReplies !== "none" || options.xQuotes !== "none")) {
+    options.signals = "x-basic";
+  }
+  if (options.xReplies === "best-effort" && options.xProvider === "hybrid") {
+    options.xProvider = "browser";
   }
 
   return options;
@@ -232,6 +241,10 @@ function printSummary(prepared, assetsDir) {
 
   if (prepared.document.signals) {
     console.log(`Signals: ${prepared.document.signals.provider_trace.attempts.length} provider(s) intentados`);
+    const replies = prepared.document.signals.conversation?.reply_count_collected ?? 0;
+    if (replies > 0) {
+      console.log(`Comentarios/replies recolectados: ${replies}`);
+    }
   }
 }
 

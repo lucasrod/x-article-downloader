@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import path from "node:path";
 import process from "node:process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -18,7 +17,7 @@ import {
   X_REPLIES_MODES,
 } from "../core/article-schema.js";
 import { extractArticle } from "../core/extract.js";
-import { finalizeDocument } from "../core/output.js";
+import { defaultAssetsDir, defaultOutputPath, finalizeDocument } from "../core/output.js";
 import { renderEvidenceJsonl } from "../core/render-jsonl.js";
 import { renderMarkdown } from "../core/render-markdown.js";
 import { prepareDocument, writePreparedOutput } from "../pipeline.js";
@@ -67,21 +66,17 @@ server.registerTool("article.render", {
     format: z.enum(OUTPUT_FORMATS).optional(),
     images_mode: z.enum(IMAGE_MODES).optional(),
     embedded_posts_mode: z.enum(EMBEDDED_POST_MODES).optional(),
+    comments: z.boolean().optional(),
     chunk: z.enum(CHUNK_MODES).optional(),
     output_path: z.string().optional(),
+    browser_storage_state: z.string().optional(),
+    browser_cdp_endpoint: z.string().optional(),
   },
-}, async ({ document, format, images_mode, embedded_posts_mode, chunk, output_path }) => {
+}, async ({ document, format, images_mode, embedded_posts_mode, comments, chunk, output_path, browser_storage_state, browser_cdp_endpoint }) => {
   const effectiveFormat = format ?? "md";
-  const effectiveOutputPath = output_path ?? fallbackOutputPath(effectiveFormat);
+  const effectiveOutputPath = output_path ?? defaultOutputPath(document, effectiveFormat, images_mode ?? "embed");
   const assetsDir = images_mode === "download"
-    ? path.resolve(
-        effectiveFormat === "bundle"
-          ? path.join(effectiveOutputPath, "assets")
-          : path.join(
-            path.dirname(effectiveOutputPath),
-            `${path.basename(effectiveOutputPath, path.extname(effectiveOutputPath))}.assets`,
-          ),
-      )
+    ? defaultAssetsDir(effectiveOutputPath, effectiveFormat)
     : null;
 
   const prepared = await prepareDocument(document, {
@@ -89,13 +84,15 @@ server.registerTool("article.render", {
     images: images_mode ?? "embed",
     embeddedPosts: embedded_posts_mode ?? "quote",
     chunk: chunk ?? "none",
-    signals: "none",
-    xProvider: "hybrid",
-    xReplies: "none",
+    signals: comments ? "x-basic" : "none",
+    xProvider: comments ? "browser" : "hybrid",
+    xReplies: comments ? "best-effort" : "none",
     xQuotes: "none",
     brief: "none",
     bearerTokenEnv: "X_BEARER_TOKEN",
     grokApiKeyEnv: "XAI_API_KEY",
+    browserStorageState: browser_storage_state ?? process.env.X_BROWSER_STORAGE_STATE ?? null,
+    browserCdpEndpoint: browser_cdp_endpoint ?? process.env.X_BROWSER_CDP_ENDPOINT ?? null,
     timeout: 120000,
     outputPath: effectiveOutputPath,
     assetsDir,
@@ -136,22 +133,27 @@ server.registerTool("signals.enrich_x", {
   inputSchema: {
     url: z.string().optional(),
     document: z.any().optional(),
+    comments: z.boolean().optional(),
     signals_mode: z.enum(SIGNAL_MODES).optional(),
     x_provider: z.enum(X_PROVIDERS).optional(),
     x_replies: z.enum(X_REPLIES_MODES).optional(),
     x_quotes: z.enum(X_QUOTES_MODES).optional(),
     x_bearer_token_env: z.string().optional(),
     grok_api_key_env: z.string().optional(),
+    browser_storage_state: z.string().optional(),
+    browser_cdp_endpoint: z.string().optional(),
     timeout: z.number().int().positive().optional(),
   },
-}, async ({ url, document, signals_mode, x_provider, x_replies, x_quotes, x_bearer_token_env, grok_api_key_env, timeout }) => {
+}, async ({ url, document, comments, signals_mode, x_provider, x_replies, x_quotes, x_bearer_token_env, grok_api_key_env, browser_storage_state, browser_cdp_endpoint, timeout }) => {
   const result = await collectSignals(document ?? url, {
-    signalsMode: signals_mode ?? "x-full",
-    xProvider: x_provider ?? "hybrid",
-    repliesMode: x_replies ?? "none",
+    signalsMode: signals_mode ?? (comments ? "x-basic" : "x-full"),
+    xProvider: x_provider ?? (comments ? "browser" : "hybrid"),
+    repliesMode: x_replies ?? (comments ? "best-effort" : "none"),
     quotesMode: x_quotes ?? "none",
     bearerTokenEnv: x_bearer_token_env ?? "X_BEARER_TOKEN",
     grokApiKeyEnv: grok_api_key_env ?? "XAI_API_KEY",
+    browserStorageState: browser_storage_state ?? process.env.X_BROWSER_STORAGE_STATE ?? null,
+    browserCdpEndpoint: browser_cdp_endpoint ?? process.env.X_BROWSER_CDP_ENDPOINT ?? null,
     timeout: timeout ?? 120000,
   });
 
@@ -232,21 +234,6 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("x-article-downloader MCP server running on stdio");
-}
-
-function fallbackOutputPath(format) {
-  switch (format) {
-    case "json":
-      return "/tmp/x-article-output.json";
-    case "md+json":
-      return "/tmp/x-article-output.md";
-    case "jsonl":
-      return "/tmp/x-article-output.jsonl";
-    case "bundle":
-      return "/tmp/x-article-output.bundle";
-    default:
-      return "/tmp/x-article-output.md";
-  }
 }
 
 function resourceLinks() {

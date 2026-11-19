@@ -5,22 +5,29 @@
   "type": "module",
   "bin": {
     "x-article-downloader": "./src/cli.js",
-    "x-article-downloader-mcp": "./src/mcp/server.js"
+    "x-article-downloader-mcp": "./src/mcp/server.js",
+    "x-article-downloader-web": "./src/web/server.js"
   },
   "scripts": {
     "download": "node ./src/cli.js",
+    "auth:x": "node ./src/auth/save-x-storage-state.js",
+    "auth:x:cdp": "node ./src/auth/save-x-storage-state-cdp.js",
     "mcp": "node ./src/mcp/server.js",
+    "web": "node ./src/web/server.js",
+    "web:avatars": "node ./src/web/backfill-avatars.js",
+    "library:export": "node ./src/library/cli.js export",
+    "library:import": "node ./src/library/cli.js import",
     "test:sample": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011'",
     "test:sample:json": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format md+json",
-    "test:sample:bundle": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format bundle --chunk headings"
+    "test:sample:bundle": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format bundle",
+    "test": "node --test"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "playwright": "^1.60.0"
-    ,
+    "playwright": "^1.60.0",
     "zod": "^4.1.12"
   }
 }

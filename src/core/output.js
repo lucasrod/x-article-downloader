@@ -2,24 +2,33 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { computeContentHash } from "./utils.js";
 
+export const DEFAULT_DOWNLOAD_ROOT = "./downloads/articles";
+
 export function defaultOutputPath(document, format, imagesMode) {
-  const suffix = imagesMode === "download" ? "local-images" : "remote-images";
-  const base = `./tmp/${document.article.slug}-${suffix}`;
+  const articleDir = path.join(DEFAULT_DOWNLOAD_ROOT, document.article.slug);
 
   switch (format) {
     case "md":
-      return `${base}.md`;
+      return path.join(articleDir, "article.md");
     case "json":
-      return `${base}.json`;
+      return path.join(articleDir, "article.json");
     case "md+json":
-      return `${base}.md`;
+      return path.join(articleDir, "article.md");
     case "jsonl":
-      return `${base}.jsonl`;
+      return path.join(articleDir, "article.jsonl");
     case "bundle":
-      return `${base}.bundle`;
+      return articleDir;
     default:
-      return `${base}.md`;
+      return path.join(articleDir, "article.md");
   }
+}
+
+export function defaultAssetsDir(outputPath, format) {
+  const resolved = path.resolve(outputPath);
+  if (format === "bundle") {
+    return path.join(resolved, "assets");
+  }
+  return path.join(path.dirname(resolved), "assets");
 }
 
 export function deriveOutputPlan(outputPath, format) {

@@ -1,0 +1,2450 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>X Article Library</title>
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --surface: #ffffff;
+    --surface-2: #efede7;
+    --border: #dedad0;
+    --text: #1d1c19;
+    --muted: #6b675e;
+    --accent: #1d5bd8;
+    --accent-soft: #e3ebfb;
+    --mark: #fbe7a1;
+    --ok: #2f7a3f;
+    --ok-soft: #e2f1e4;
+    --warn: #9a6200;
+    --warn-soft: #f8edd6;
+    --err: #b3261e;
+    --err-soft: #f9e1df;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 4px 16px rgba(0, 0, 0, .04);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, .16);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --topbar: 56px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151513; --surface: #1d1d1a; --surface-2: #262622; --border: #34332e;
+      --text: #ebe8e0; --muted: #9b978c; --accent: #7ea6ff; --accent-soft: #1f2a44; --mark: #5b4a12;
+      --ok: #7fcf8d; --ok-soft: #1d2e21; --warn: #e8b55c; --warn-soft: #33281a;
+      --err: #ff8a80; --err-soft: #3a1f1d; --shadow: none; --shadow-lg: 0 10px 40px rgba(0, 0, 0, .5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151513; --surface: #1d1d1a; --surface-2: #262622; --border: #34332e;
+    --text: #ebe8e0; --muted: #9b978c; --accent: #7ea6ff; --accent-soft: #1f2a44; --mark: #5b4a12;
+    --ok: #7fcf8d; --ok-soft: #1d2e21; --warn: #e8b55c; --warn-soft: #33281a;
+    --err: #ff8a80; --err-soft: #3a1f1d; --shadow: none; --shadow-lg: 0 10px 40px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); }
+  a { color: var(--accent); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+  /* ---------- barra superior ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 30; height: var(--topbar);
+    display: flex; align-items: center; gap: 12px; padding: 0 20px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); margin-right: auto; min-width: 0; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 7px; background: var(--text); color: var(--bg); display: grid; place-items: center; font-weight: 700; flex: none; }
+  .brand strong { font-size: 15px; white-space: nowrap; }
+
+  .btn {
+    border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 12px;
+    cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 6px;
+    text-decoration: none; color: var(--text); white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn.dark { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+  .btn.dark:hover { opacity: .9; }
+  .btn.small { padding: 2px 8px; font-size: 12px; }
+  .btn.ghost { border-color: transparent; background: none; }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn[aria-expanded="true"], .btn.active { border-color: var(--text); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .count-pill { background: var(--accent); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 6px; font-weight: 700; }
+  .btn.dark .count-pill { background: var(--bg); color: var(--text); }
+  .icon-btn { border: 0; background: none; cursor: pointer; font-size: 20px; line-height: 1; padding: 4px 8px; border-radius: 6px; color: var(--muted); }
+  .icon-btn:hover { background: var(--surface-2); }
+
+  /* ---------- shell por variante ---------- */
+  .shell { display: grid; grid-template-columns: 272px minmax(0, 1fr); align-items: start; }
+  body.no-filters .shell { grid-template-columns: minmax(0, 1fr); }
+  body.no-filters .filters { display: none; }
+
+  .side {
+    position: sticky; top: var(--topbar); height: calc(100vh - var(--topbar)); overflow-y: auto;
+    background: var(--surface); border-right: 1px solid var(--border); padding: 18px;
+  }
+  .side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .side-head h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .side-close { display: none; }
+
+  /* pagina Agregar */
+  .add { max-width: 680px; margin: 24px auto 0; }
+  .add h1 { margin: 0 0 6px; font: 600 30px/1.2 var(--serif); }
+  .add .lead { margin: 0 0 22px; color: var(--muted); }
+  .add-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); }
+  .add-card textarea { min-height: 84px; font-size: 14px; }
+  .add-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .add-row .btn.dark { padding: 9px 18px; }
+  details.options summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  details.options[open] { flex-basis: 100%; }
+  details.options .field-grid { margin-top: 10px; }
+  .eyebrow { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .04em; color: var(--accent); text-transform: uppercase; }
+  .add h2.section-title { margin: 36px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .sync-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+  .sync-controls .check { margin: 0; align-items: center; }
+  .sync-controls .check input { margin: 0; }
+  .sync-controls input[type="number"] { width: 64px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); text-align: center; }
+  .sync-actions { display: flex; gap: 8px; margin-left: auto; }
+  .sync-actions .btn.dark { padding: 9px 18px; }
+  .sync-status { margin-top: 16px; }
+  .sync-status:empty { display: none; }
+  .sync-line { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; margin-bottom: 8px; }
+  .sync-line strong { font-weight: 600; }
+  .sync-line span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .progress { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .progress > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .3s ease; }
+  .progress.indeterminate > span { width: 30% !important; animation: slide 1.2s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+  .sync-sub { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .sync-items { list-style: none; margin: 14px 0 0; padding: 0; max-height: 340px; overflow-y: auto; border-top: 1px solid var(--border); }
+  .sync-items li { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .sync-items .t { flex: 1; min-width: 0; }
+  .sync-items .t div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sync-items .t small { color: var(--muted); }
+  .sync-items .t small.err { color: var(--err); white-space: normal; }
+  .sync-review { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .notice { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+  .notice code { font: 12px var(--mono); }
+  .add-jobs { margin-top: 28px; }
+  .add-jobs .side-head { margin-bottom: 10px; }
+
+  .scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .3); }
+
+  /* ---------- formulario y cola ---------- */
+  textarea {
+    width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); padding: 10px; font: 13px/1.45 var(--mono);
+  }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  select, input[type="search"], input[type="date"], input[type="text"] {
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 7px 9px; font-size: 14px; width: 100%;
+  }
+  .check { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 14px; cursor: pointer; }
+  .check input { margin-top: 3px; }
+  .check small { display: block; color: var(--muted); font-size: 12px; }
+  .form-error { color: var(--err); font-size: 13px; margin-top: 8px; }
+  .jobs { display: flex; flex-direction: column; gap: 8px; }
+  .job { border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; font-size: 13px; background: var(--bg); }
+  .job-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .job-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-url { color: var(--muted); font: 11px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-detail { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .job-detail.err { color: var(--err); }
+  .badge { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px; white-space: nowrap; background: var(--surface-2); color: var(--muted); }
+  .badge.running { background: var(--accent-soft); color: var(--accent); }
+  .badge.done { background: var(--ok-soft); color: var(--ok); }
+  .badge.error { background: var(--err-soft); color: var(--err); }
+  .empty { color: var(--muted); font-size: 14px; }
+  .spinner { width: 10px; height: 10px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; display: inline-block; animation: spin .8s linear infinite; vertical-align: -1px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- facetas ---------- */
+  .facet { border-top: 1px solid var(--border); padding: 10px 0; }
+  .facet:first-child { border-top: 0; padding-top: 0; }
+  .facet-toggle {
+    width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    border: 0; background: none; padding: 4px 0; cursor: pointer; font-weight: 600; font-size: 14px; text-align: left;
+  }
+  .facet-toggle .chev { color: var(--muted); transition: transform .15s; }
+  .facet-toggle[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+  .facet-active { font-size: 11px; color: var(--accent); font-weight: 600; margin-left: auto; }
+  .facet-body { padding-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .facet-search { margin-bottom: 6px; font-size: 13px !important; padding: 5px 8px !important; }
+  .opt {
+    display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 3px 4px; border-radius: 6px; cursor: pointer;
+  }
+  .opt:hover { background: var(--surface-2); }
+  .opt input { margin: 0; flex: none; accent-color: var(--accent); }
+  .opt .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opt .label small { color: var(--muted); }
+  .opt .n { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .opt.zero { opacity: .45; }
+  .facet-more { border: 0; background: none; color: var(--accent); cursor: pointer; font-size: 13px; padding: 4px; text-align: left; }
+  .date-range { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .date-range label { font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+  .date-range input { font-size: 12px; padding: 4px 6px; }
+
+  /* ---------- vista biblioteca ---------- */
+  main { min-width: 0; padding: 24px 32px 64px; }
+  .library { max-width: 940px; }
+  .lib-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .lib-title h1 { margin: 0; font: 600 26px/1.2 var(--serif); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .search-wrap { position: relative; flex: 1 1 320px; }
+  .search-wrap input { padding: 10px 40px 10px 36px; font-size: 16px; border-radius: 10px; background: var(--surface); }
+  .search-wrap .glass { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .search-wrap kbd { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font: 11px var(--mono); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; }
+  .search-wrap input:not(:placeholder-shown) ~ kbd { display: none; }
+  .sort { width: auto; background: var(--surface); }
+  #open-filters { display: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; background: var(--accent-soft); color: var(--accent); border: 0; border-radius: 999px; padding: 3px 6px 3px 10px; cursor: pointer; }
+  .chip span { font-size: 15px; line-height: 1; }
+  .chip.clear { background: none; color: var(--muted); text-decoration: underline; padding: 3px 6px; }
+  .result-count { color: var(--muted); font-size: 13px; margin: 14px 0 6px; }
+
+  .results { list-style: none; margin: 0; padding: 0; transition: opacity .15s; }
+  .results.loading { opacity: .5; }
+  .row { border-top: 1px solid var(--border); }
+  .row:first-child { border-top: 0; }
+  .row a { display: block; padding: 14px 10px; margin: 0 -10px; border-radius: 10px; text-decoration: none; color: var(--text); }
+  .row a:hover, .row a:focus-visible { background: var(--surface); }
+  .row h2 { margin: 0 0 3px; font: 600 18px/1.3 var(--serif); }
+  .row a.has-thumb { display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 16px; align-items: start; }
+  .thumb { width: 132px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
+  @media (max-width: 560px) {
+    .row a.has-thumb { grid-template-columns: minmax(0, 1fr) 84px; gap: 12px; }
+    .thumb { width: 84px; aspect-ratio: 1; }
+  }
+  .row a.has-cover { grid-template-columns: minmax(0, 1fr) 64px; }
+  .thumb.cover { width: 64px; aspect-ratio: auto; height: auto; max-height: 96px; object-fit: contain; border-radius: 3px; background: none; box-shadow: 0 1px 4px rgb(0 0 0 / .25); }
+  .item-cover { display: block; width: 100%; max-width: 220px; height: auto; margin: 0 auto 4px; border-radius: 4px; box-shadow: 0 2px 10px rgb(0 0 0 / .25); }
+  .cover-origin { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; text-align: center; margin: 6px 0 10px; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--muted); font-size: 13px; }
+  .meta .author { color: var(--text); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+  .avatar { width: 18px; height: 18px; flex: none; object-fit: cover; background: var(--border); border-radius: 50%; vertical-align: middle; }
+  .avatar.square { border-radius: 4px; }
+  .opt .avatar { width: 16px; height: 16px; margin-right: 6px; }
+  .opt .avatar.square { border-radius: 3px; }
+  .byline .avatar { width: 22px; height: 22px; margin-right: 6px; }
+  .byline .avatar.square { border-radius: 5px; }
+  .meta .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+  .snippet { margin: 6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .no-results { padding: 40px 0; text-align: center; color: var(--muted); }
+
+  /* ---------- lector ---------- */
+  .reader { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 36px; align-items: start; }
+  .back { display: inline-block; margin-bottom: 18px; font-size: 14px; text-decoration: none; }
+  article.doc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 40px 48px; box-shadow: var(--shadow); font: 18px/1.65 var(--serif); max-width: 760px; }
+  article.doc h1 { font-size: 32px; line-height: 1.2; margin: 0 0 8px; }
+  article.doc .byline { font: 14px var(--sans); color: var(--muted); margin-bottom: 28px; }
+  article.doc h2, article.doc h3, article.doc h4 { line-height: 1.3; margin: 1.6em 0 .5em; }
+  article.doc p { margin: 0 0 1em; }
+  article.doc img { max-width: 100%; border-radius: 8px; display: block; margin: 1.2em auto; }
+  article.doc blockquote { margin: 1em 0; padding: 2px 0 2px 18px; border-left: 3px solid var(--border); color: var(--muted); }
+  article.doc pre { background: var(--surface-2); padding: 14px; border-radius: 8px; overflow-x: auto; font: 13px/1.5 var(--mono); }
+  article.doc code { font: .85em var(--mono); background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+  article.doc pre code { background: none; padding: 0; }
+  article.doc hr { border: 0; border-top: 1px solid var(--border); margin: 2em 0; }
+  .embed { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 1.2em 0; font: 14px/1.5 var(--sans); background: var(--bg); }
+  .embed .who { font-weight: 600; }
+  .embed .who span { color: var(--muted); font-weight: 400; }
+  .embed p { white-space: pre-line; margin: 6px 0 !important; }
+  pre.raw { white-space: pre-wrap; font: 14px/1.55 var(--mono); background: none; padding: 0; }
+  .panel { position: sticky; top: calc(var(--topbar) + 20px); display: flex; flex-direction: column; gap: 14px; }
+  .box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .box h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; display: flex; justify-content: space-between; }
+  .actions { display: flex; flex-direction: column; gap: 8px; }
+  .actions .btn { justify-content: center; }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .metric strong { display: block; font-size: 20px; }
+  .metric span { font-size: 12px; color: var(--muted); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tags span { font-size: 12px; background: var(--surface-2); border-radius: 999px; padding: 2px 9px; }
+  .reply { border-top: 1px solid var(--border); padding: 10px 0; font-size: 13px; }
+  .reply:first-of-type { border-top: 0; padding-top: 0; }
+  .reply .who { font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+  .reply .who a { font-weight: 400; font-size: 12px; text-decoration: none; }
+  .reply p { margin: 4px 0 0; white-space: pre-line; }
+  .reply .views { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .files { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+  .files li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; }
+  .files code { font: 12px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .failures { font-size: 12px; color: var(--warn); margin: 0; padding-left: 16px; }
+  .summary { font-size: 13px; margin: 0 0 10px; color: var(--muted); }
+
+  /* ---------- organizacion: carpetas, listas, etiquetas ---------- */
+  .org { display: flex; flex-direction: column; gap: 1px; margin-bottom: 18px; }
+  .org-row {
+    display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; cursor: pointer;
+    padding: 5px 8px; border-radius: 6px; font-size: 14px; text-align: left;
+  }
+  .org-row:hover { background: var(--surface-2); }
+  .org-row.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .org-row .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .org-row .n { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; }
+  .org-head { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 2px; padding-left: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .org-head .icon-btn { font-size: 18px; padding: 0 8px; }
+  .org .empty { padding: 2px 8px; font-size: 13px; }
+  .head-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lib-sub { color: var(--muted); font-size: 14px; margin: -6px 0 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .lib-sub:empty { display: none; }
+  .row-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 12px; margin-top: -6px; }
+  .row-foot .spacer { flex: 1; }
+  .row-foot .pos { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; min-width: 22px; }
+  .row-foot .note { color: var(--muted); font-size: 13px; font-style: italic; }
+  .tagchip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 1px 9px; font-size: 12px; cursor: pointer; color: var(--muted); }
+  .tagchip:hover { border-color: var(--accent); color: var(--accent); }
+  .meta .physical { color: var(--ok); font-weight: 500; }
+  .organizer { display: flex; flex-direction: column; gap: 14px; }
+  .organizer h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .organizer .check { margin: 0; }
+  .organizer .volumes { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  .organizer .volume { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto; gap: 6px; align-items: center; }
+  .organizer .opt-list { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
+  .tag-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tag-edit input { flex: 1 1 130px; width: auto; padding: 4px 8px; font-size: 13px; }
+  dialog {
+    border: 1px solid var(--border); border-radius: 14px; padding: 20px; background: var(--surface); color: var(--text);
+    width: min(440px, calc(100vw - 32px)); box-shadow: var(--shadow-lg);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .35); }
+  .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .dialog-head h2 { margin: 0; font: 600 18px/1.3 var(--serif); }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .item-form { display: flex; flex-direction: column; gap: 10px; }
+  .item-form textarea { font: 14px/1.45 var(--sans); min-height: 70px; }
+  .item-form .field-grid { margin-top: 0; }
+  .doc .notes { white-space: pre-line; }
+  .doc .hint { font: 14px var(--sans); color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; margin-top: 24px; }
+  .btn.danger { color: var(--err); }
+  .rel-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 14px; }
+  .rel-list li { display: flex; align-items: baseline; gap: 6px; padding: 4px 0; border-top: 1px solid var(--border); }
+  .rel-list li:first-child { border-top: 0; }
+  .rel-list .how { color: var(--muted); font-size: 12px; flex: none; }
+  .rel-list a { flex: 1; min-width: 0; text-decoration: none; }
+  .rel-list a:hover { text-decoration: underline; }
+  .rel-list .icon-btn { font-size: 16px; padding: 0 6px; }
+  .rel-add { display: flex; flex-direction: column; gap: 6px; }
+  .rel-add select { font-size: 13px; padding: 5px 8px; }
+  .picker { display: flex; flex-direction: column; gap: 2px; }
+  .picker button { text-align: left; border: 0; background: none; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .picker button:hover, .picker button:focus-visible { background: var(--surface-2); }
+  .picker button small { color: var(--muted); display: block; }
+  .graph-view { max-width: 1100px; }
+  .graph-view h1 { margin: 0 0 6px; font: 600 26px/1.2 var(--serif); }
+  .graph-view .lead { color: var(--muted); margin: 0 0 14px; }
+  .graph-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .graph-box svg { display: block; width: 100%; height: min(70vh, 640px); }
+  .graph-box .node circle { fill: var(--surface); stroke: var(--text); stroke-width: 1.5; }
+  .graph-box .node:hover circle, .graph-box .node:focus-visible circle { fill: var(--accent-soft); stroke: var(--accent); }
+  .graph-box .node text { font: 12px var(--sans); fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+  .graph-box .edge { fill: none; stroke-width: 1.6; }
+  .graph-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+  .graph-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .graph-legend svg { width: 34px; height: 10px; }
+  :root { --rel-requires: #b3261e; --rel-continues: #1d5bd8; --rel-part-of: #2f7a3f; --rel-cites: #7a4fb5; --rel-related: #6b675e; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --rel-requires: #ff8a80; --rel-continues: #7ea6ff; --rel-part-of: #7fcf8d; --rel-cites: #c3a3f0; --rel-related: #9b978c; }
+  }
+  :root[data-theme="dark"] { --rel-requires: #ff8a80; --rel-continues: #7ea6ff; --rel-part-of: #7fcf8d; --rel-cites: #c3a3f0; --rel-related: #9b978c; }
+  .pdf-frame { width: 100%; height: 84vh; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-top: 16px; display: block; }
+  .item-head { max-width: none; padding: 24px 28px; }
+  .item-head h1 { font-size: 26px; }
+  .item-head .byline { margin-bottom: 0; }
+  .item-head .notes { margin: 14px 0 0; font-size: 16px; }
+  .file-info { font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+  .file-info code { font: 12px var(--mono); word-break: break-all; color: var(--muted); }
+  .file-info .state { font-weight: 600; }
+  .file-info .state.ok { color: var(--ok); }
+  .file-info .state.warn { color: var(--warn); }
+  .sources { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .sources:empty { display: none; }
+  .source { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--bg); }
+  .source-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .source-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .source-head span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .source code { display: block; font: 12px var(--mono); color: var(--muted); word-break: break-all; margin: 2px 0 8px; }
+  .source .sync-sub { margin: 6px 0 0; }
+  .source-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .source-tools select { width: auto; font-size: 13px; padding: 3px 6px; }
+  .source-tools .spacer { flex: 1; }
+
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1180px) {
+    .reader { grid-template-columns: minmax(0, 1fr); }
+    .panel { position: static; }
+  }
+  @media (max-width: 760px) {
+    .topbar { padding: 0 12px; gap: 8px; }
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    main { padding: 16px 16px 48px; }
+    #open-filters { display: inline-flex; }
+    .filters {
+      position: fixed; z-index: 50; top: 0; left: 0; height: 100vh; width: min(340px, 90vw);
+      box-shadow: var(--shadow-lg); transform: translateX(-105%); transition: transform .2s ease; visibility: hidden;
+    }
+    .filters.open { transform: none; visibility: visible; }
+    .filters .side-close { display: inline-block; }
+    .search-wrap { flex-basis: 100%; }
+    .search-wrap kbd { display: none; }
+    article.doc { padding: 24px 18px; font-size: 17px; }
+    article.doc h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#/">
+    <span class="brand-mark">X</span>
+    <strong>Article Library</strong>
+  </a>
+  <a class="btn" href="#/grafo">Grafo</a>
+  <a class="btn dark" href="#/agregar" id="add-link">
+    + Agregar <span class="count-pill" id="jobs-pill" hidden title="Descargas en curso"></span>
+  </a>
+</header>
+
+<div class="shell">
+  <aside class="side filters" id="filters" aria-label="Carpetas, listas y filtros">
+    <div class="side-head">
+      <h2>Biblioteca</h2>
+      <span>
+        <button class="btn small ghost" type="button" data-action="clear-filters" id="filters-clear" hidden>Limpiar</button>
+        <button class="icon-btn side-close" type="button" data-close="filters" aria-label="Cerrar">×</button>
+      </span>
+    </div>
+    <nav class="org" id="org-nav" aria-label="Carpetas y listas"></nav>
+    <div id="facet-groups"></div>
+  </aside>
+
+  <main>
+    <section class="library" id="library-view">
+      <div class="lib-title" id="lib-head">
+        <h1>Biblioteca</h1>
+      </div>
+      <div class="lib-sub" id="lib-sub"></div>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="glass" aria-hidden="true">⌕</span>
+          <input type="search" id="search" placeholder="Buscar en títulos, autores y contenido…" aria-label="Buscar" autocomplete="off">
+          <kbd>/</kbd>
+        </div>
+        <button class="btn" type="button" id="open-filters" aria-controls="filters" aria-expanded="false">Carpetas y filtros <span class="count-pill" data-active-count hidden></span></button>
+        <select class="sort" id="sort" aria-label="Ordenar">
+          <option value="relevance">Relevancia</option>
+          <option value="newest">Publicación: más nuevos</option>
+          <option value="oldest">Publicación: más viejos</option>
+          <option value="downloaded">Descargados recientemente</option>
+          <option value="longest">Más largos</option>
+          <option value="shortest">Más cortos</option>
+          <option value="author">Autor A–Z</option>
+          <option value="title">Título A–Z</option>
+          <option value="list">Orden de la lista</option>
+        </select>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="result-count" id="result-count" aria-live="polite"></div>
+      <ul class="results" id="results"></ul>
+    </section>
+    <section id="reader-view" hidden></section>
+    <section id="item-view" hidden></section>
+    <section class="graph-view" id="graph-view" hidden></section>
+    <section class="add" id="add-view" hidden>
+      <p class="eyebrow">Tus bookmarks, tu biblioteca</p>
+      <h1>Descargá los artículos de X que guardaste en bookmarks</h1>
+      <p class="lead">Sincronizá tu cuenta y cada Article que guardaste queda en tu biblioteca: con búsqueda, filtros y listo para leer o exportar en Markdown.</p>
+      <div class="add-card" id="sync-card">
+        <div class="sync-controls">
+          <label class="check"><input type="checkbox" id="sync-auto" checked> Descargar automáticamente</label>
+          <label class="check"><input type="checkbox" id="sync-limit-on" checked> Solo los <input type="number" id="sync-limit" value="20" min="1" max="1000" aria-label="Cantidad de artículos"> más recientes</label>
+          <label class="check" id="sync-full-label"><input type="checkbox" id="sync-full"> Revisar todo el historial</label>
+          <div class="sync-actions">
+            <button class="btn" type="button" id="sync-stop" hidden>Detener</button>
+            <button class="btn dark" type="button" id="sync-start">Sincronizar bookmarks</button>
+          </div>
+        </div>
+        <p class="sync-sub" id="sync-cache"></p>
+        <div class="sync-status" id="sync-status"></div>
+      </div>
+
+      <h2 class="section-title">O agregá un artículo por URL</h2>
+      <form class="add-card" id="download-form">
+        <textarea id="urls" placeholder="https://x.com/usuario/status/123…&#10;Podés pegar varias, una por línea" spellcheck="false" aria-label="URLs de X"></textarea>
+        <div class="add-row">
+          <details class="options">
+            <summary>Opciones</summary>
+            <div class="field-grid">
+              <label class="field">Formato
+                <select id="format">
+                  <option value="bundle">bundle (md + json)</option>
+                  <option value="md+json">md + json</option>
+                  <option value="md">solo md</option>
+                  <option value="json">solo json</option>
+                </select>
+              </label>
+              <label class="field">Imágenes
+                <select id="images">
+                  <option value="embed">enlazadas</option>
+                  <option value="download">descargar</option>
+                </select>
+              </label>
+            </div>
+            <label class="check">
+              <input type="checkbox" id="comments">
+              <span>Traer comentarios<small>Lee las replies visibles con el navegador. Tarda más.</small></span>
+            </label>
+          </details>
+          <button class="btn" type="submit">Agregar a la biblioteca</button>
+        </div>
+        <div class="form-error" id="form-error" hidden></div>
+      </form>
+      <h2 class="section-title">O sincronizá una carpeta de PDFs</h2>
+      <div class="add-card">
+        <form class="item-form" id="source-form">
+          <label class="field">Ruta completa de la carpeta
+            <input type="text" id="source-path" placeholder="/Users/vos/Documents/Estudio" spellcheck="false" autocomplete="off" required>
+          </label>
+          <div class="add-row" style="margin-top:0">
+            <label class="field">Qué hacer con los archivos
+              <select id="source-policy">
+                <option value="archive">Archivar: guardar una copia en la biblioteca</option>
+                <option value="reference">Referenciar: solo indexar, leer desde la carpeta</option>
+              </select>
+            </label>
+            <button class="btn" type="submit">Agregar y sincronizar</button>
+          </div>
+          <p class="sync-sub" style="margin:0">La primera vez se crean carpetas iguales a las del disco. Después las organizás a tu gusto y los PDFs nuevos entran a “Sin clasificar”.</p>
+          <div class="form-error" id="source-error" hidden></div>
+        </form>
+        <div class="sources" id="sources"></div>
+      </div>
+
+      <h2 class="section-title">O registrá un libro, paper o documento</h2>
+      <form class="add-card item-form" id="register-form">
+        <div id="register-fields"></div>
+        <label class="check"><input type="checkbox" id="register-physical"> <span>Lo tengo en mi biblioteca física<small>Impreso o comprado. Podés registrarlo aunque no tengas el PDF.</small></span></label>
+        <label class="field" id="register-location-field" hidden>Ubicación (opcional)
+          <input type="text" id="register-location" placeholder="Estante 2, prestado a…">
+        </label>
+        <label class="field">Etiquetas (separadas por coma)
+          <input type="text" id="register-tags" placeholder="cálculo, primer año">
+        </label>
+        <div class="add-row">
+          <span class="empty">Para material que no tenés en PDF.</span>
+          <button class="btn" type="submit">Registrar en la biblioteca</button>
+        </div>
+        <div class="form-error" id="register-error" hidden></div>
+      </form>
+      <section class="add-jobs">
+        <div class="side-head">
+          <h2>En curso y recientes</h2>
+          <button class="btn small" id="clear-jobs" type="button" hidden>Limpiar terminados</button>
+        </div>
+        <div class="jobs" id="jobs"><div class="empty">Nada en curso.</div></div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="toast" id="toast" role="status"></div>
+<datalist id="all-tags"></datalist>
+
+<dialog id="ask-dialog" aria-labelledby="ask-title">
+  <form method="dialog" id="ask-form">
+    <div class="dialog-head"><h2 id="ask-title"></h2></div>
+    <p class="empty" id="ask-message" hidden></p>
+    <input type="text" id="ask-input" autocomplete="off" aria-labelledby="ask-title">
+    <div class="form-error" id="ask-error" hidden></div>
+    <div class="dialog-actions">
+      <button class="btn" type="button" id="ask-cancel">Cancelar</button>
+      <button class="btn dark" type="submit" id="ask-ok">Aceptar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="organizer-dialog" aria-labelledby="organizer-title">
+  <div class="dialog-head">
+    <h2 id="organizer-title"></h2>
+    <button class="icon-btn" type="button" data-close-dialog aria-label="Cerrar">×</button>
+  </div>
+  <div id="organizer-body"></div>
+</dialog>
+
+<script>
+const STAGES = { extract: "Extrayendo artículo", signals: "Leyendo comentarios y signals", render: "Renderizando", write: "Guardando archivos" };
+const STATUS_LABELS = { queued: "En cola", running: "Descargando", done: "Listo", error: "Error" };
+const DATE_LABELS = { "7d": "Últimos 7 días", "30d": "Últimos 30 días", "90d": "Últimos 3 meses", "365d": "Último año" };
+const KIND_LABELS = {
+  article: "Artículo de X", book: "Libro", paper: "Paper", notes: "Notas de curso", slides: "Slides",
+  "problem-set": "Práctico / repartido", handwritten: "Notas manuscritas", document: "Otro documento",
+};
+const FACETS = [
+  { key: "kind", label: "Tipo", kind: "multi", primary: true },
+  { key: "tag", label: "Etiquetas", kind: "multi", primary: true },
+  { key: "physical", label: "Biblioteca física", kind: "multi" },
+  { key: "author", label: "Autor", kind: "multi", primary: true },
+  { key: "pub", label: "Fecha de publicación", kind: "date", primary: true },
+  { key: "len", label: "Largo de lectura", kind: "multi" },
+  { key: "lang", label: "Idioma", kind: "multi" },
+  { key: "has", label: "Contenido", kind: "multi" },
+  { key: "dl", label: "Fecha de descarga", kind: "date" },
+];
+const MULTI_KEYS = ["kind", "tag", "physical", "author", "len", "lang", "has"];
+// Carpeta y lista son navegacion, no filtros: "Limpiar" no las quita.
+const NAV_KEYS = ["q", "sort", "folder", "list"];
+const AUTHOR_PREVIEW = 8;
+
+const state = {
+  jobs: [],
+  data: null,
+  open: new Set(["kind", "tag"]),
+  org: { folders: [], lists: [], all_tags: [], unfiled: 0 },
+  authorFilter: "",
+  authorExpanded: false,
+  lastLibraryHash: "#/",
+  request: null,
+};
+
+const $ = (id) => document.getElementById(id);
+
+// ---------- utilidades ----------
+
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[char]));
+
+// Markdown inline minimo que produce el extractor: links, negrita, italica y code.
+function inline(text) {
+  const codes = [];
+  let html = escapeHtml(text).replace(/`([^`]+)`/g, (_, code) => {
+    codes.push(code);
+    return `\u0000${codes.length - 1}\u0000`;
+  });
+  html = html
+    .replace(/\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\*\*\*\s*([^*]+?)\s*\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*\s*([^*]+?)\s*\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g, "$1<em>$2</em>");
+  return html.replace(/\u0000(\d+)\u0000/g, (_, index) => `<code>${codes[index]}</code>`);
+}
+
+const segmentsHtml = (segments) => segments
+  .map((segment) => segment.mark ? `<mark>${escapeHtml(segment.text)}</mark>` : escapeHtml(segment.text))
+  .join("");
+
+function formatDate(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short", year: "numeric" });
+}
+
+// Fecha cargada a mano con la precision que se conozca: "2016", "2016-03", "2016-03-14".
+function formatPublished(published) {
+  if (!published) return "";
+  const [year, month, day] = published.split("-").map(Number);
+  if (!month) return String(year);
+  const date = new Date(Date.UTC(year, month - 1, day || 1));
+  return date.toLocaleDateString("es", { timeZone: "UTC", ...(day ? { day: "numeric" } : {}), month: "short", year: "numeric" });
+}
+
+const LANGUAGE_NAMES = { es: "Español", en: "Inglés", pt: "Portugués", fr: "Francés", it: "Italiano", de: "Alemán" };
+
+function formatBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toLocaleString("es", { maximumFractionDigits: 1 })} MB`;
+}
+
+const formatNumber = (value) => new Intl.NumberFormat("es", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+
+function toast(message) {
+  const element = $("toast");
+  element.textContent = message;
+  element.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => element.classList.remove("show"), 1800);
+}
+
+async function api(url, init) {
+  const response = await fetch(url, init);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  return body;
+}
+
+const fileUrl = (slug, file, download = false) =>
+  `/api/articles/${encodeURIComponent(slug)}/files/${file.split("/").map(encodeURIComponent).join("/")}${download ? "?download" : ""}`;
+
+// ---------- estado en la URL ----------
+
+function currentParams() {
+  const query = location.hash.startsWith("#/?") ? location.hash.slice(3) : "";
+  return new URLSearchParams(query);
+}
+
+function setParams(mutate, { replace = false } = {}) {
+  const params = currentParams();
+  mutate(params);
+  for (const [key, value] of [...params]) if (!value) params.delete(key);
+  const query = params.toString();
+  const hash = query ? `#/?${query}` : "#/";
+  if (replace) {
+    history.replaceState(null, "", hash);
+    route();
+  } else if (hash !== location.hash) {
+    location.hash = hash;
+  } else {
+    route();
+  }
+}
+
+const listParam = (params, key) => (params.get(key) || "").split(",").filter(Boolean);
+
+function toggleListValue(key, value, checked) {
+  setParams((params) => {
+    const values = new Set(listParam(params, key));
+    if (checked) values.add(value); else values.delete(value);
+    params.set(key, [...values].join(","));
+  });
+}
+
+function setDateFilter(key, preset) {
+  setParams((params) => {
+    params.delete(`${key}_from`);
+    params.delete(`${key}_to`);
+    params.set(key, preset);
+  });
+}
+
+function setDateRange(key, edge, value) {
+  setParams((params) => {
+    params.delete(key);
+    params.set(`${key}_${edge}`, value);
+  });
+}
+
+function clearFilters() {
+  setParams((params) => {
+    for (const key of [...params.keys()]) if (!NAV_KEYS.includes(key)) params.delete(key);
+  });
+}
+
+function activeFilterCount(params, keys = FACETS.map((facet) => facet.key)) {
+  let count = 0;
+  for (const key of keys) {
+    if (MULTI_KEYS.includes(key)) count += listParam(params, key).length;
+    else if (params.get(key) || params.get(`${key}_from`) || params.get(`${key}_to`)) count += 1;
+  }
+  return count;
+}
+
+// ---------- biblioteca ----------
+
+let searchTimer = null;
+$("search").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    const value = $("search").value.trim();
+    setParams((params) => {
+      params.set("q", value);
+      params.delete("sort");
+    }, { replace: true });
+  }, 160);
+});
+
+$("sort").addEventListener("change", () => {
+  setParams((params) => params.set("sort", $("sort").value));
+});
+
+async function loadLibrary() {
+  const params = currentParams();
+  state.request?.abort();
+  const controller = new AbortController();
+  state.request = controller;
+  $("results").classList.add("loading");
+
+  try {
+    const response = await fetch(`/api/library?${params}`, { signal: controller.signal });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+    state.data = await response.json();
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    $("results").classList.remove("loading");
+    $("results").innerHTML = `<li class="no-results">No pude cargar la biblioteca: ${escapeHtml(error.message)}</li>`;
+    return;
+  }
+
+  $("results").classList.remove("loading");
+  renderLibrary(params);
+}
+
+function renderLibrary(params) {
+  const data = state.data;
+  setOrganization(data);
+  if (document.activeElement !== $("search")) $("search").value = params.get("q") || "";
+  renderOrgNav(params);
+  renderLibraryHead(params);
+
+  const sort = $("sort");
+  sort.querySelector('option[value="relevance"]').disabled = data.query.length === 0;
+  sort.querySelector('option[value="list"]').hidden = !params.get("list");
+  sort.value = data.sort;
+
+  const active = activeFilterCount(params);
+  for (const pill of document.querySelectorAll("[data-active-count]")) {
+    pill.textContent = active;
+    pill.hidden = active === 0;
+  }
+  $("filters-clear").hidden = active === 0;
+  renderChips(params);
+  renderFacets();
+
+  $("result-count").textContent = data.total === 0
+    ? ""
+    : data.count === data.total
+      ? `${data.total} items`
+      : `${data.count} de ${data.total} items`;
+
+  if (data.total === 0) {
+    $("results").innerHTML = '<li class="no-results">Tu biblioteca está vacía. Usá “Agregar” para empezar.</li>';
+    return;
+  }
+  if (data.count === 0) {
+    const scoped = params.get("folder") || params.get("list");
+    const filtered = activeFilterCount(params) > 0 || params.get("q");
+    $("results").innerHTML = scoped && !filtered
+      ? `<li class="no-results">${params.get("list") ? "Esta lista todavía no tiene items." : "Acá todavía no hay nada."}<br>Usá “Organizar” en cualquier item de la biblioteca para agregarlo.</li>`
+      : `<li class="no-results">Sin resultados para esta búsqueda y filtros.<br><br>
+      <button class="btn" type="button" data-action="clear-all">Limpiar búsqueda y filtros</button></li>`;
+    return;
+  }
+
+  const listId = params.get("list");
+  const manualOrder = listId && data.sort === "list" && data.count === (state.org.lists.find((list) => list.id === listId)?.count ?? -1);
+
+  $("results").innerHTML = data.results.map((article, index) => {
+    const isArticle = article.kind === "article";
+    const author = article.author_name || article.author_handle;
+    const meta = [
+      isArticle ? "" : `<span class="tag">${escapeHtml(KIND_LABELS[article.kind] ?? article.kind)}</span>`,
+      author ? `<span class="author">${avatarHtml(article.author_avatar)}${escapeHtml(author)}</span>` : "",
+      article.author_name && article.author_handle ? `<span>${escapeHtml(article.author_handle)}</span>` : "",
+      isArticle
+        ? (article.published_at ? `<span title="Publicado">${formatDate(article.published_at)}</span>` : "")
+        : (article.published ? `<span title="Publicado">${formatPublished(article.published)}</span>` : ""),
+      article.file ? '<span class="tag">PDF</span>' : "",
+      article.pages
+        ? `<span>${article.pages} pág.</span>`
+        : (article.reading_minutes ? `<span>${article.reading_minutes} min</span>` : ""),
+      article.file && !article.file.available ? '<span title="El archivo no está en la carpeta ni archivado">Archivo no disponible</span>' : "",
+      article.physical.owned ? `<span class="physical" title="${escapeHtml(physicalTitle(article.physical))}">En físico${article.physical.volumes?.length > 1 ? ` · ${article.physical.volumes.length} tomos` : ""}</span>` : "",
+      article.lang !== "other" ? `<span class="tag">${article.lang}</span>` : "",
+      article.image_count ? `<span>${article.image_count} img</span>` : "",
+      article.embed_count ? `<span>${article.embed_count} embebidos</span>` : "",
+      article.reply_count ? `<span>${article.reply_count} comentarios</span>` : "",
+    ].filter(Boolean).join("");
+    const thumb = article.cover_url
+      ? `<img class="thumb cover" src="${escapeHtml(article.cover_url)}" alt="" loading="lazy" onerror="this.remove()">`
+      : article.thumbnail
+      ? `<img class="thumb" src="${escapeHtml(article.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+      : "";
+    const href = article.slug ? `#/a/${encodeURIComponent(article.slug)}` : `#/i/${encodeURIComponent(article.item_id)}`;
+    const snippet = segmentsHtml(article.snippet);
+    const label = escapeHtml(article.title);
+    const listTools = listId ? `
+        ${manualOrder ? `<button class="btn small ghost" type="button" data-list-move="-1" ${index === 0 ? "disabled" : ""} aria-label="Subir ${label}" title="Subir">↑</button>
+        <button class="btn small ghost" type="button" data-list-move="1" ${index === data.results.length - 1 ? "disabled" : ""} aria-label="Bajar ${label}" title="Bajar">↓</button>` : ""}
+        <button class="btn small ghost" type="button" data-list-note aria-label="Nota de ${label}">Nota</button>
+        <button class="btn small ghost" type="button" data-list-remove aria-label="Quitar ${label} de la lista">Quitar</button>` : "";
+    return `<li class="row" data-item="${escapeHtml(article.item_id)}" data-index="${index}"><a href="${href}"${thumb ? ` class="has-thumb${article.cover_url ? " has-cover" : ""}"` : ""}>
+      <div>
+        <h2>${segmentsHtml(article.title_segments)}</h2>
+        <div class="meta">${meta}</div>
+        ${snippet ? `<p class="snippet">${snippet}</p>` : ""}
+      </div>${thumb}
+    </a>
+    <div class="row-foot">
+      ${manualOrder ? `<span class="pos">${index + 1}.</span>` : ""}
+      ${article.tags.map((tag) => `<button class="tagchip" type="button" data-filter-tag="${escapeHtml(tag)}" title="Filtrar por esta etiqueta">${escapeHtml(tag)}</button>`).join("")}
+      ${listId && article.list_note ? `<span class="note">${escapeHtml(article.list_note)}</span>` : ""}
+      <span class="spacer"></span>${listTools}
+      <button class="btn small ghost" type="button" data-organize aria-label="Organizar ${label}">Organizar</button>
+    </div></li>`;
+  }).join("");
+}
+
+// Circulo para personas, cuadrado para organizaciones, como lo muestra X.
+function avatarHtml(avatar) {
+  if (!avatar?.url) return "";
+  return `<img class="avatar ${avatar.shape === "square" ? "square" : ""}" src="${escapeHtml(avatar.url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`;
+}
+
+function chipLabel(key, value) {
+  const facet = state.data.facets[key];
+  if (key === "author") return `Autor: ${facet.find((option) => option.value === value)?.label ?? value}`;
+  return facet.find((option) => option.value === value)?.label ?? value;
+}
+
+function renderChips(params) {
+  const chips = [];
+  for (const key of MULTI_KEYS) {
+    for (const value of listParam(params, key)) {
+      chips.push({ label: chipLabel(key, value), remove: () => toggleListValue(key, value, false) });
+    }
+  }
+  for (const key of ["pub", "dl"]) {
+    const prefix = key === "pub" ? "Publicado" : "Descargado";
+    const preset = params.get(key);
+    const from = params.get(`${key}_from`);
+    const to = params.get(`${key}_to`);
+    if (preset) chips.push({ label: `${prefix}: ${DATE_LABELS[preset]?.toLowerCase() ?? preset}`, remove: () => setDateFilter(key, "") });
+    if (from || to) chips.push({ label: `${prefix}: ${from || "…"} → ${to || "…"}`, remove: () => setParams((p) => { p.delete(`${key}_from`); p.delete(`${key}_to`); }) });
+  }
+
+  state.chipActions = chips.map((chip) => chip.remove);
+  $("chips").innerHTML = chips.map((chip, index) =>
+    `<button class="chip" type="button" data-chip="${index}" aria-label="Quitar ${escapeHtml(chip.label)}">${escapeHtml(chip.label)} <span aria-hidden="true">×</span></button>`).join("")
+    + (chips.length > 1 ? '<button class="chip clear" type="button" data-action="clear-filters">Quitar todos</button>' : "");
+}
+
+// ---------- facetas ----------
+
+function facetHtml(facet, params) {
+  const data = state.data.facets[facet.key];
+  const activeCount = activeFilterCount(params, [facet.key]);
+  const open = state.open.has(facet.key) || activeCount > 0;
+  const body = facet.kind === "date" ? dateFacetBody(facet.key, data, params) : multiFacetBody(facet.key, data, params);
+  return `<section class="facet" data-facet-group="${facet.key}">
+    <button class="facet-toggle" type="button" data-toggle-facet="${facet.key}" aria-expanded="${open}">
+      <span>${facet.label}</span>
+      ${activeCount ? `<span class="facet-active">${activeCount} activo${activeCount > 1 ? "s" : ""}</span>` : ""}
+      <span class="chev" aria-hidden="true">▾</span>
+    </button>
+    <div class="facet-body" ${open ? "" : "hidden"}>${body}</div>
+  </section>`;
+}
+
+function multiFacetBody(key, options, params) {
+  const selected = new Set(listParam(params, key));
+  let visible = options;
+  let more = "";
+
+  if (key === "author") {
+    const filter = state.authorFilter.toLowerCase();
+    const matching = options.filter((option) => selected.has(option.value)
+      || !filter || `${option.label} ${option.value}`.toLowerCase().includes(filter));
+    const ordered = [...matching].sort((left, right) => Number(selected.has(right.value)) - Number(selected.has(left.value)));
+    visible = state.authorExpanded || filter ? ordered : ordered.slice(0, AUTHOR_PREVIEW);
+    if (!filter && ordered.length > AUTHOR_PREVIEW) {
+      more = `<button class="facet-more" type="button" data-action="toggle-authors">${state.authorExpanded ? "Ver menos" : `Ver los ${ordered.length} autores`}</button>`;
+    }
+  }
+
+  const items = visible.map((option) => {
+    const checked = selected.has(option.value);
+    const label = key === "author"
+      ? `${avatarHtml(option.avatar)}${escapeHtml(option.label)} <small>${escapeHtml(option.handle ?? "")}</small>`
+      : escapeHtml(option.label);
+    return `<label class="opt ${option.count === 0 && !checked ? "zero" : ""}">
+      <input type="checkbox" data-multi="${key}" value="${escapeHtml(option.value)}" ${checked ? "checked" : ""}>
+      <span class="label">${label}</span><span class="n">${option.count}</span>
+    </label>`;
+  }).join("");
+
+  const search = key === "author"
+    ? `<input type="text" class="facet-search" data-author-search placeholder="Buscar autor…" value="${escapeHtml(state.authorFilter)}" aria-label="Buscar autor">`
+    : "";
+  const empty = key === "tag" ? "Todavía no hay etiquetas. Agregalas con “Organizar”." : "Sin coincidencias.";
+  return search + (items || `<div class="empty">${empty}</div>`) + more;
+}
+
+function dateFacetBody(key, presets, params) {
+  const current = params.get(key) || "";
+  const name = `date-${key}`;
+  const radios = [{ value: "", label: "Cualquier fecha", count: null }, ...presets.map((preset) => ({ ...preset, label: DATE_LABELS[preset.value] }))]
+    .map((option) => `<label class="opt ${option.count === 0 && current !== option.value ? "zero" : ""}">
+      <input type="radio" name="${name}" data-date="${key}" value="${option.value}" ${current === option.value && !params.get(`${key}_from`) && !params.get(`${key}_to`) ? "checked" : ""}>
+      <span class="label">${option.label}</span>${option.count == null ? "" : `<span class="n">${option.count}</span>`}
+    </label>`).join("");
+  return `${radios}
+    <div class="date-range">
+      <label>Desde<input type="date" data-range="${key}" data-edge="from" value="${escapeHtml(params.get(`${key}_from`) || "")}"></label>
+      <label>Hasta<input type="date" data-range="${key}" data-edge="to" value="${escapeHtml(params.get(`${key}_to`) || "")}"></label>
+    </div>`;
+}
+
+function renderFacets() {
+  if (!state.data) return;
+  const params = currentParams();
+  const restoreAuthorFocus = document.activeElement?.matches?.("[data-author-search]");
+
+  $("facet-groups").innerHTML = FACETS.map((facet) => facetHtml(facet, params)).join("");
+
+  if (restoreAuthorFocus) {
+    const input = document.querySelector("[data-author-search]");
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  }
+}
+
+// ---------- organizacion: carpetas, listas, etiquetas ----------
+
+function setOrganization(data) {
+  state.org = { folders: data.folders, lists: data.lists, all_tags: data.all_tags, unfiled: data.unfiled };
+  if (data.relation_types) state.relationTypes = data.relation_types;
+  $("all-tags").innerHTML = data.all_tags.map((entry) => `<option value="${escapeHtml(entry.tag)}"></option>`).join("");
+}
+
+async function refreshOrganization() {
+  setOrganization(await api("/api/catalog"));
+}
+
+// Carpetas en orden de arbol, con su profundidad.
+function folderTree() {
+  const children = new Map();
+  for (const folder of state.org.folders) {
+    const key = folder.parent_id ?? "";
+    if (!children.has(key)) children.set(key, []);
+    children.get(key).push(folder);
+  }
+  const ordered = [];
+  const walk = (parent, depth) => {
+    for (const folder of children.get(parent) ?? []) {
+      ordered.push({ folder, depth });
+      walk(folder.id, depth + 1);
+    }
+  };
+  walk("", 0);
+  return ordered;
+}
+
+function folderPath(id) {
+  const byId = new Map(state.org.folders.map((folder) => [folder.id, folder]));
+  const names = [];
+  for (let folder = byId.get(id); folder; folder = byId.get(folder.parent_id)) names.unshift(folder.name);
+  return names.join(" / ");
+}
+
+function renderOrgNav(params) {
+  const folderId = params.get("folder");
+  const listId = params.get("list");
+  const row = (attrs, label, count, active, depth = 0) =>
+    `<button class="org-row ${active ? "active" : ""}" type="button" ${attrs} ${active ? 'aria-current="true"' : ""} style="padding-left:${8 + depth * 14}px">
+      <span class="label">${escapeHtml(label)}</span><span class="n">${count}</span></button>`;
+  const folders = folderTree().map(({ folder, depth }) =>
+    row(`data-nav-folder="${escapeHtml(folder.id)}"`, folder.name, folder.count, folder.id === folderId, depth)).join("");
+  const lists = state.org.lists.map((list) =>
+    row(`data-nav-list="${escapeHtml(list.id)}"`, list.name, list.count, list.id === listId)).join("");
+
+  $("org-nav").innerHTML = row('data-nav-all', "Todo", state.data.total, !folderId && !listId)
+    + row('data-nav-folder="none"', "Sin clasificar", state.org.unfiled, folderId === "none")
+    + `<div class="org-head"><span>Carpetas</span><button class="icon-btn" type="button" data-action="new-folder" aria-label="Nueva carpeta" title="Nueva carpeta">+</button></div>`
+    + (folders || '<div class="empty">Todavía no hay carpetas.</div>')
+    + `<div class="org-head"><span>Listas de lectura</span><button class="icon-btn" type="button" data-action="new-list" aria-label="Nueva lista de lectura" title="Nueva lista de lectura">+</button></div>`
+    + (lists || '<div class="empty">Todavía no hay listas.</div>');
+}
+
+function renderLibraryHead(params) {
+  const folder = state.org.folders.find((candidate) => candidate.id === params.get("folder"));
+  const list = state.org.lists.find((candidate) => candidate.id === params.get("list"));
+  let title = "Biblioteca";
+  let actions = "";
+  let sub = "";
+
+  if (list) {
+    title = list.name;
+    const inFolders = state.org.folders.filter((candidate) => candidate.list_ids.includes(list.id));
+    sub = `<span>Lista de lectura${list.description ? ` · ${escapeHtml(list.description)}` : ""}${inFolders.length ? ` · en ${inFolders.map((candidate) => escapeHtml(folderPath(candidate.id))).join(", ")}` : ""}</span>`;
+    actions = `<button class="btn small" type="button" data-action="rename-list">Renombrar</button>
+      <button class="btn small" type="button" data-action="describe-list">Descripción</button>
+      <button class="btn small" type="button" data-action="list-folders">Guardar en carpeta</button>
+      <button class="btn small danger" type="button" data-action="delete-list">Eliminar</button>`;
+  } else if (folder) {
+    title = folderPath(folder.id);
+    const lists = state.org.lists.filter((candidate) => folder.list_ids.includes(candidate.id));
+    sub = lists.length
+      ? `<span>Listas en esta carpeta:</span>${lists.map((candidate) => `<button class="tagchip" type="button" data-nav-list="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</button>`).join("")}`
+      : "";
+    actions = `<button class="btn small" type="button" data-action="new-subfolder">Nueva subcarpeta</button>
+      <button class="btn small" type="button" data-action="rename-folder">Renombrar</button>
+      <button class="btn small danger" type="button" data-action="delete-folder">Eliminar</button>`;
+  } else if (params.get("folder") === "none") {
+    title = "Sin clasificar";
+    sub = "<span>Items que todavía no están en ninguna carpeta.</span>";
+  }
+
+  $("lib-head").innerHTML = `<h1>${escapeHtml(title)}</h1><div class="head-actions">${actions}</div>`;
+  $("lib-sub").innerHTML = sub;
+}
+
+// Dialogo unico para pedir un texto o una confirmacion. Resuelve null si se cancela.
+function ask({ title, message = "", value = null, ok = "Aceptar", danger = false }) {
+  const dialog = $("ask-dialog");
+  $("ask-title").textContent = title;
+  $("ask-message").textContent = message;
+  $("ask-message").hidden = !message;
+  $("ask-input").hidden = value === null;
+  $("ask-input").value = value ?? "";
+  $("ask-error").hidden = true;
+  $("ask-ok").textContent = ok;
+  $("ask-ok").classList.toggle("danger", danger);
+  dialog.returnValue = "";
+  dialog.showModal();
+  if (value !== null) $("ask-input").select();
+  return new Promise((resolve) => {
+    dialog.addEventListener("close", () => {
+      resolve(dialog.returnValue === "ok" ? (value === null ? true : $("ask-input").value.trim()) : null);
+    }, { once: true });
+  });
+}
+$("ask-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  $("ask-dialog").close("ok");
+});
+$("ask-cancel").addEventListener("click", () => $("ask-dialog").close(""));
+
+const jsonInit = (method, body) => ({ method, headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
+const navigateTo = (key, id) => setParams((params) => {
+  params.delete("folder");
+  params.delete("list");
+  if (key) params.set(key, id);
+});
+
+// Acciones sobre carpetas y listas. Los errores de dominio se muestran en un toast.
+async function organizationAction(action) {
+  const params = currentParams();
+  const folderId = params.get("folder");
+  const listId = params.get("list");
+  const folder = state.org.folders.find((candidate) => candidate.id === folderId);
+  const list = state.org.lists.find((candidate) => candidate.id === listId);
+
+  if (action === "new-folder" || action === "new-subfolder") {
+    const parent = action === "new-subfolder" ? folder : null;
+    const name = await ask({ title: parent ? `Nueva subcarpeta en ${parent.name}` : "Nueva carpeta", value: "", ok: "Crear" });
+    if (!name) return;
+    const created = await api("/api/folders", jsonInit("POST", { name, parent_id: parent?.id ?? null }));
+    return navigateTo("folder", created.id);
+  }
+  if (action === "rename-folder" && folder) {
+    const name = await ask({ title: "Renombrar carpeta", value: folder.name, ok: "Guardar" });
+    if (!name) return;
+    await api(`/api/folders/${folder.id}`, jsonInit("PATCH", { name }));
+    return loadLibrary();
+  }
+  if (action === "delete-folder" && folder) {
+    const sure = await ask({
+      title: `Eliminar la carpeta “${folder.name}”`,
+      message: "También se eliminan sus subcarpetas. Los items y las listas que contiene siguen en tu biblioteca.",
+      ok: "Eliminar", danger: true,
+    });
+    if (!sure) return;
+    await api(`/api/folders/${folder.id}`, { method: "DELETE" });
+    return navigateTo(folder.parent_id ? "folder" : null, folder.parent_id);
+  }
+  if (action === "new-list") {
+    const name = await ask({ title: "Nueva lista de lectura", value: "", ok: "Crear" });
+    if (!name) return;
+    const created = await api("/api/lists", jsonInit("POST", { name }));
+    return navigateTo("list", created.id);
+  }
+  if (action === "rename-list" && list) {
+    const name = await ask({ title: "Renombrar lista", value: list.name, ok: "Guardar" });
+    if (!name) return;
+    await api(`/api/lists/${list.id}`, jsonInit("PATCH", { name }));
+    return loadLibrary();
+  }
+  if (action === "describe-list" && list) {
+    const description = await ask({ title: "Descripción de la lista", value: list.description, ok: "Guardar" });
+    if (description === null) return;
+    await api(`/api/lists/${list.id}`, jsonInit("PATCH", { description }));
+    return loadLibrary();
+  }
+  if (action === "delete-list" && list) {
+    const sure = await ask({
+      title: `Eliminar la lista “${list.name}”`,
+      message: "Los items de la lista siguen en tu biblioteca.",
+      ok: "Eliminar", danger: true,
+    });
+    if (!sure) return;
+    await api(`/api/lists/${list.id}`, { method: "DELETE" });
+    return navigateTo(null);
+  }
+  if (action === "list-folders" && list) {
+    $("organizer-title").textContent = `Guardar “${list.name}” en carpetas`;
+    $("organizer-body").innerHTML = listFoldersHtml(list.id);
+    $("organizer-dialog").showModal();
+  }
+}
+
+function listFoldersHtml(listId) {
+  const rows = folderTree().map(({ folder, depth }) => `<label class="opt" style="padding-left:${4 + depth * 16}px">
+    <input type="checkbox" data-list-in-folder="${escapeHtml(folder.id)}" ${folder.list_ids.includes(listId) ? "checked" : ""}>
+    <span class="label">${escapeHtml(folder.name)}</span></label>`).join("");
+  return `<div class="organizer" data-org-list="${escapeHtml(listId)}"><div class="opt-list">${rows || '<div class="empty">Todavía no hay carpetas.</div>'}</div></div>`;
+}
+
+// Organizador de un item: etiquetas, copia fisica, carpetas y listas.
+// Se usa igual en el dialogo de la biblioteca, en el lector y en la ficha.
+function organizerHtml(item) {
+  const folders = folderTree().map(({ folder, depth }) => `<label class="opt" style="padding-left:${4 + depth * 16}px">
+    <input type="checkbox" data-in-folder="${escapeHtml(folder.id)}" ${item.folder_ids.includes(folder.id) ? "checked" : ""}>
+    <span class="label">${escapeHtml(folder.name)}</span></label>`).join("");
+  const lists = state.org.lists.map((list) => `<label class="opt">
+    <input type="checkbox" data-in-list="${escapeHtml(list.id)}" ${item.list_ids.includes(list.id) ? "checked" : ""}>
+    <span class="label">${escapeHtml(list.name)}</span></label>`).join("");
+  return `<div class="organizer" data-org-item="${escapeHtml(item.id)}">
+    <div>
+      <h4>Etiquetas</h4>
+      <div class="tag-edit">
+        ${item.tags.map((tag) => `<button class="chip" type="button" data-remove-tag="${escapeHtml(tag)}" aria-label="Quitar etiqueta ${escapeHtml(tag)}">${escapeHtml(tag)} <span aria-hidden="true">×</span></button>`).join("")}
+        <input type="text" data-add-tag list="all-tags" placeholder="Agregar etiqueta y Enter" aria-label="Agregar etiqueta" autocomplete="off">
+      </div>
+    </div>
+    <div>
+      <label class="check"><input type="checkbox" data-physical ${item.physical.owned ? "checked" : ""}> <span>Lo tengo en mi biblioteca física</span></label>
+      ${item.physical.owned ? `<input type="text" data-physical-location value="${escapeHtml(item.physical.location ?? "")}" placeholder="Ubicación (opcional): estante, prestado a…" aria-label="Ubicación física" style="margin-top:8px">
+      <div class="volumes">
+        <h4>Tomos</h4>
+        ${(item.physical.volumes ?? []).map((volume, index) => `<div class="volume" data-volume>
+          <input type="text" data-volume-name value="${escapeHtml(volume.name)}" aria-label="Nombre del tomo ${index + 1}">
+          <input type="text" data-volume-location value="${escapeHtml(volume.location ?? "")}" placeholder="Ubicación" aria-label="Ubicación del tomo ${index + 1}">
+          <button class="chip" type="button" data-remove-volume aria-label="Quitar tomo ${escapeHtml(volume.name)}">×</button>
+        </div>`).join("")}
+        <input type="text" data-add-volume placeholder="Agregar tomo y Enter: Parte 1, capítulos 5 a 8…" aria-label="Agregar tomo" autocomplete="off">
+      </div>` : ""}
+    </div>
+    <div>
+      <h4>Carpetas</h4>
+      <div class="opt-list">${folders || '<div class="empty">Todavía no hay carpetas. Creá una desde la biblioteca.</div>'}</div>
+    </div>
+    <div>
+      <h4>Listas de lectura</h4>
+      <div class="opt-list">${lists || '<div class="empty">Todavía no hay listas. Creá una desde la biblioteca.</div>'}</div>
+    </div>
+  </div>`;
+}
+
+async function openOrganizer(itemId) {
+  const item = await api(`/api/items/${encodeURIComponent(itemId)}`);
+  $("organizer-title").textContent = item.title;
+  $("organizer-body").innerHTML = organizerHtml(item);
+  $("organizer-dialog").showModal();
+}
+
+$("organizer-dialog").addEventListener("close", () => {
+  if (lastView === "library") loadLibrary();
+});
+
+// Aplica un cambio del organizador y lo vuelve a dibujar con el estado guardado.
+async function organizerChange(container, change) {
+  const id = container.dataset.orgItem;
+  const tags = [...container.querySelectorAll("[data-remove-tag]")].map((chip) => chip.dataset.removeTag);
+  try {
+    if (change.addTag) await api(`/api/items/${id}`, jsonInit("PATCH", { tags: [...tags, change.addTag] }));
+    if (change.removeTag) await api(`/api/items/${id}`, jsonInit("PATCH", { tags: tags.filter((tag) => tag !== change.removeTag) }));
+    if (change.physical) await api(`/api/items/${id}`, jsonInit("PATCH", { physical: change.physical }));
+    if (change.folder) await api(`/api/folders/${change.folder}/items/${id}`, { method: change.checked ? "PUT" : "DELETE" });
+    if (change.list) await api(`/api/lists/${change.list}/items/${id}`, change.checked ? jsonInit("PUT") : { method: "DELETE" });
+  } catch (error) {
+    toast(error.message);
+  }
+  const [item] = await Promise.all([api(`/api/items/${id}`), refreshOrganization()]);
+  const refocus = change.addTag || change.removeTag ? "[data-add-tag]" : change.addedVolume ? "[data-add-volume]" : null;
+  container.outerHTML = organizerHtml(item);
+  if (refocus) document.querySelector(`[data-org-item="${CSS.escape(id)}"] ${refocus}`)?.focus();
+}
+
+// Los tomos se guardan todos juntos, tal como quedaron en pantalla.
+function volumesChange(organizer, { skip = null } = {}) {
+  const volumes = [...organizer.querySelectorAll("[data-volume]")]
+    .filter((row) => row !== skip)
+    .map((row) => ({ name: row.querySelector("[data-volume-name]").value, location: row.querySelector("[data-volume-location]").value }));
+  const added = organizer.querySelector("[data-add-volume]")?.value.trim();
+  if (added) volumes.push({ name: added, location: "" });
+  return organizerChange(organizer, { physical: { volumes }, addedVolume: Boolean(added) });
+}
+
+function physicalTitle(physical) {
+  const volumes = (physical.volumes ?? []).map((volume) => volume.location ? `${volume.name} (${volume.location})` : volume.name);
+  return [physical.location, volumes.join(", ")].filter(Boolean).join(" · ") || "En tu biblioteca física";
+}
+
+function commitTagInput(input) {
+  const tag = input.value.trim();
+  if (!tag) return;
+  input.value = "";
+  organizerChange(input.closest("[data-org-item]"), { addTag: tag });
+}
+
+// ---------- relaciones entre items ----------
+
+const itemHref = (id) => `#/i/${encodeURIComponent(id)}`;
+
+function relationsHtml(item) {
+  const rows = item.relations.map((relation) => `<li>
+      <span class="how">${escapeHtml(relation.label)}</span>
+      <a href="${itemHref(relation.other.id)}">${escapeHtml(relation.other.title)}</a>
+      <button class="icon-btn" type="button" data-remove-relation="${escapeHtml(relation.id)}" aria-label="Quitar relación con ${escapeHtml(relation.other.title)}">×</button>
+    </li>`).join("");
+  // Cada tipo con direccion se ofrece en sus dos sentidos, leido desde este item.
+  const options = (state.relationTypes ?? []).flatMap((type) => type.symmetric
+    ? [`<option value="${type.value}:out">Este item ${escapeHtml(type.label)}…</option>`]
+    : [`<option value="${type.value}:out">Este item ${escapeHtml(type.label)}…</option>`,
+       `<option value="${type.value}:in">Este item ${escapeHtml(type.inverse)}…</option>`]).join("");
+  return `<div data-rel-item="${escapeHtml(item.id)}">
+    <ul class="rel-list">${rows || '<li class="empty">Sin relaciones todavía.</li>'}</ul>
+    <div class="rel-add">
+      <select data-rel-type aria-label="Tipo de relación">${options}</select>
+      <input type="text" data-item-search placeholder="Buscar el otro item…" aria-label="Buscar el item a relacionar" autocomplete="off">
+      <div class="picker" data-picker></div>
+    </div>
+  </div>`;
+}
+
+// Buscador de items reutilizable: un input [data-item-search] seguido de [data-picker].
+let pickerTimer = null;
+function searchItemsFor(input) {
+  clearTimeout(pickerTimer);
+  pickerTimer = setTimeout(async () => {
+    const picker = input.parentElement.querySelector("[data-picker]");
+    const query = input.value.trim();
+    if (!query) {
+      picker.innerHTML = "";
+      return;
+    }
+    const exclude = input.closest("[data-rel-item], [data-merge-into]");
+    const ownId = exclude?.dataset.relItem ?? exclude?.dataset.mergeInto;
+    const data = await api(`/api/library?q=${encodeURIComponent(query)}`);
+    if (input.value.trim() !== query) return;
+    const results = data.results.filter((result) => result.item_id !== ownId).slice(0, 6);
+    picker.innerHTML = results.map((result) => `<button type="button" data-pick="${escapeHtml(result.item_id)}" data-pick-title="${escapeHtml(result.title)}" data-pick-source="${result.has_source}">
+        ${escapeHtml(result.title)}<small>${escapeHtml([KIND_LABELS[result.kind] ?? result.kind, result.author_name, result.published?.slice(0, 4)].filter(Boolean).join(" · "))}</small>
+      </button>`).join("") || '<div class="empty">Sin coincidencias.</div>';
+  }, 180);
+}
+
+async function refreshRelations(container) {
+  const item = await api(`/api/items/${encodeURIComponent(container.dataset.relItem)}`);
+  container.outerHTML = relationsHtml(item);
+}
+
+async function pickItem(button) {
+  const otherId = button.dataset.pick;
+  const relations = button.closest("[data-rel-item]");
+  if (relations) {
+    const [type, direction] = relations.querySelector("[data-rel-type]").value.split(":");
+    const ownId = relations.dataset.relItem;
+    try {
+      await api("/api/relations", jsonInit("POST", direction === "in"
+        ? { from_id: otherId, to_id: ownId, type }
+        : { from_id: ownId, to_id: otherId, type }));
+    } catch (error) {
+      return toast(error.message);
+    }
+    return refreshRelations(relations);
+  }
+
+  const merge = button.closest("[data-merge-into]");
+  if (merge) {
+    if (button.dataset.pickSource === "true") {
+      return toast("Un artículo de X no se puede unir dentro de otro item.");
+    }
+    const sure = await ask({
+      title: `Unir “${button.dataset.pickTitle}” dentro de este item`,
+      message: "Este item se queda con sus archivos, etiquetas, carpetas, listas y relaciones. El otro desaparece y no se puede deshacer.",
+      ok: "Unir", danger: true,
+    });
+    if (!sure) return;
+    try {
+      await api(`/api/items/${encodeURIComponent(merge.dataset.mergeInto)}/merge`, jsonInit("POST", { other_id: otherId }));
+      toast("Items unidos");
+      renderItem(merge.dataset.mergeInto);
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+}
+
+// ---------- grafo ----------
+
+const GRAPH_DASH = { requires: "", continues: "7 4", "part-of": "2 4", cites: "10 3 2 3", related: "" };
+
+// Disposicion por fuerzas, chica y sin dependencias: los nodos se repelen,
+// las aristas los acercan y todo tiende al centro.
+function layoutGraph(nodes, edges) {
+  const k = 150;
+  const position = new Map(nodes.map((node, index) => {
+    const angle = (2 * Math.PI * index) / nodes.length;
+    return [node.id, { x: Math.cos(angle) * k * 1.5, y: Math.sin(angle) * k * 1.5 }];
+  }));
+  for (let step = 0; step < 300; step += 1) {
+    const move = new Map(nodes.map((node) => [node.id, { x: 0, y: 0 }]));
+    for (let i = 0; i < nodes.length; i += 1) {
+      for (let j = i + 1; j < nodes.length; j += 1) {
+        const a = position.get(nodes[i].id);
+        const b = position.get(nodes[j].id);
+        const dx = a.x - b.x || 0.01;
+        const dy = a.y - b.y || 0.01;
+        const distance = Math.hypot(dx, dy);
+        const force = (k * k) / distance;
+        move.get(nodes[i].id).x += (dx / distance) * force;
+        move.get(nodes[i].id).y += (dy / distance) * force;
+        move.get(nodes[j].id).x -= (dx / distance) * force;
+        move.get(nodes[j].id).y -= (dy / distance) * force;
+      }
+    }
+    for (const edge of edges) {
+      const a = position.get(edge.from);
+      const b = position.get(edge.to);
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const distance = Math.hypot(dx, dy) || 0.01;
+      const force = (distance * distance) / k;
+      move.get(edge.from).x -= (dx / distance) * force;
+      move.get(edge.from).y -= (dy / distance) * force;
+      move.get(edge.to).x += (dx / distance) * force;
+      move.get(edge.to).y += (dy / distance) * force;
+    }
+    const heat = 40 * (1 - step / 300) + 1;
+    for (const node of nodes) {
+      const at = position.get(node.id);
+      const delta = move.get(node.id);
+      delta.x -= at.x * 0.05;
+      delta.y -= at.y * 0.05;
+      const length = Math.hypot(delta.x, delta.y) || 0.01;
+      at.x += (delta.x / length) * Math.min(length, heat);
+      at.y += (delta.y / length) * Math.min(length, heat);
+    }
+  }
+  return position;
+}
+
+async function renderGraph() {
+  const view = $("graph-view");
+  let graph;
+  try {
+    graph = await api("/api/graph");
+  } catch (error) {
+    view.innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  const head = `<h1>Grafo de conocimiento</h1>
+    <p class="lead">Los items que conectaste entre sí. Tocá uno para abrirlo.</p>`;
+  if (graph.edges.length === 0) {
+    view.innerHTML = `${head}<div class="graph-box"><p class="no-results">Todavía no hay relaciones.<br>Abrí un item y usá “Relaciones” para conectarlo con otro: qué requiere, de qué es parte, a quién cita.</p></div>`;
+    return;
+  }
+
+  const position = layoutGraph(graph.nodes, graph.edges);
+  const radius = 9;
+  const xs = [...position.values()].map((at) => at.x);
+  const ys = [...position.values()].map((at) => at.y);
+  const pad = 120;
+  const box = [Math.min(...xs) - pad, Math.min(...ys) - pad / 2, Math.max(...xs) - Math.min(...xs) + pad * 2, Math.max(...ys) - Math.min(...ys) + pad];
+  const types = new Map(graph.types.map((type) => [type.value, type]));
+
+  const edges = graph.edges.map((edge) => {
+    const a = position.get(edge.from);
+    const b = position.get(edge.to);
+    const distance = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    // La linea termina en el borde del circulo para que la flecha se vea.
+    const endX = b.x - ((b.x - a.x) / distance) * (radius + 3);
+    const endY = b.y - ((b.y - a.y) / distance) * (radius + 3);
+    const type = types.get(edge.type);
+    return `<line class="edge" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${endX.toFixed(1)}" y2="${endY.toFixed(1)}"
+      stroke="var(--rel-${edge.type})" stroke-dasharray="${GRAPH_DASH[edge.type] ?? ""}" ${type?.symmetric ? "" : `marker-end="url(#arrow-${edge.type})"`}>
+      <title>${escapeHtml(type?.label ?? edge.type)}</title></line>`;
+  }).join("");
+  const nodes = graph.nodes.map((node) => {
+    const at = position.get(node.id);
+    const label = node.title.length > 32 ? `${node.title.slice(0, 31)}…` : node.title;
+    return `<a class="node" href="${itemHref(node.id)}" aria-label="${escapeHtml(`${node.title} (${node.kind_label})`)}">
+      <title>${escapeHtml(`${node.title} · ${node.kind_label}`)}</title>
+      <circle cx="${at.x.toFixed(1)}" cy="${at.y.toFixed(1)}" r="${radius}"></circle>
+      <text x="${at.x.toFixed(1)}" y="${(at.y + radius + 15).toFixed(1)}" text-anchor="middle">${escapeHtml(label)}</text>
+    </a>`;
+  }).join("");
+  const markers = graph.types.filter((type) => !type.symmetric).map((type) =>
+    `<marker id="arrow-${type.value}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--rel-${type.value})"></path></marker>`).join("");
+  const used = new Set(graph.edges.map((edge) => edge.type));
+  const legend = graph.types.filter((type) => used.has(type.value)).map((type) =>
+    `<span><svg viewBox="0 0 34 10" aria-hidden="true"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--rel-${type.value})" stroke-width="2" stroke-dasharray="${GRAPH_DASH[type.value] ?? ""}"></line></svg>${escapeHtml(type.label)}${type.symmetric ? "" : " →"}</span>`).join("");
+
+  view.innerHTML = `${head}
+    <div class="graph-box">
+      <svg viewBox="${box.map((value) => value.toFixed(0)).join(" ")}" role="img" aria-label="Grafo con ${graph.nodes.length} items y ${graph.edges.length} relaciones">
+        <defs>${markers}</defs>${edges}${nodes}
+      </svg>
+      <div class="graph-legend">${legend}</div>
+    </div>`;
+}
+
+// Acciones de una fila dentro de una lista de lectura.
+async function listRowAction(row, button) {
+  const listId = currentParams().get("list");
+  const itemId = row.dataset.item;
+  const entry = `/api/lists/${listId}/items/${itemId}`;
+  try {
+    if (button.dataset.listMove) {
+      await api(entry, jsonInit("PATCH", { position: Number(row.dataset.index) + Number(button.dataset.listMove) }));
+    } else if ("listRemove" in button.dataset) {
+      await api(entry, { method: "DELETE" });
+    } else if ("listNote" in button.dataset) {
+      const current = state.data.results.find((result) => result.item_id === itemId)?.list_note ?? "";
+      const note = await ask({ title: "Nota para esta lectura", value: current, ok: "Guardar" });
+      if (note === null) return;
+      await api(entry, jsonInit("PATCH", { note }));
+    }
+  } catch (error) {
+    toast(error.message);
+  }
+  loadLibrary();
+}
+
+// ---------- paneles ----------
+
+function openDrawer(id, button) {
+  closeOverlays();
+  $(id).classList.add("open");
+  $("scrim").hidden = false;
+  button?.setAttribute("aria-expanded", "true");
+  state.drawerButton = button;
+  $(id).querySelector("textarea, input, button")?.focus();
+}
+
+function closeOverlays() {
+  let returnFocus = null;
+  if ($("filters").classList.contains("open")) {
+    $("filters").classList.remove("open");
+    returnFocus = state.drawerButton;
+  }
+  $("scrim").hidden = true;
+  $("open-filters").setAttribute("aria-expanded", "false");
+
+  returnFocus?.focus();
+}
+
+$("open-filters").addEventListener("click", (event) => openDrawer("filters", event.currentTarget));
+$("scrim").addEventListener("click", closeOverlays);
+
+// ---------- eventos delegados ----------
+
+document.addEventListener("click", (event) => {
+  const target = event.target;
+  const close = target.closest("[data-close]");
+  if (close) return closeOverlays();
+
+  const toggle = target.closest("[data-toggle-facet]");
+  if (toggle) {
+    const key = toggle.dataset.toggleFacet;
+    if (state.open.has(key)) state.open.delete(key); else state.open.add(key);
+    const body = toggle.nextElementSibling;
+    const expanded = toggle.getAttribute("aria-expanded") === "true";
+    toggle.setAttribute("aria-expanded", String(!expanded));
+    body.hidden = expanded;
+    return;
+  }
+
+  const chip = target.closest("[data-chip]");
+  if (chip) return state.chipActions[Number(chip.dataset.chip)]();
+
+  if (target.closest("[data-close-dialog]")) return target.closest("dialog").close();
+  const pick = target.closest("[data-pick]");
+  if (pick) return pickItem(pick);
+  const removeRelation = target.closest("[data-remove-relation]");
+  if (removeRelation) {
+    const container = removeRelation.closest("[data-rel-item]");
+    return api(`/api/relations/${encodeURIComponent(removeRelation.dataset.removeRelation)}`, { method: "DELETE" })
+      .catch((error) => toast(error.message))
+      .then(() => refreshRelations(container));
+  }
+  if (target.closest("[data-nav-all]")) return navigateTo(null);
+  const navFolder = target.closest("[data-nav-folder]");
+  if (navFolder) return navigateTo("folder", navFolder.dataset.navFolder);
+  const navList = target.closest("[data-nav-list]");
+  if (navList) return navigateTo("list", navList.dataset.navList);
+  const filterTag = target.closest("[data-filter-tag]");
+  if (filterTag) return toggleListValue("tag", filterTag.dataset.filterTag, true);
+  const organize = target.closest("[data-organize]");
+  if (organize) return openOrganizer(organize.closest("[data-item]").dataset.item).catch((error) => toast(error.message));
+  const listButton = target.closest("[data-list-move], [data-list-remove], [data-list-note]");
+  if (listButton) return listRowAction(listButton.closest("[data-item]"), listButton);
+  const removeVolume = target.closest("[data-remove-volume]");
+  if (removeVolume) return volumesChange(removeVolume.closest("[data-org-item]"), { skip: removeVolume.closest("[data-volume]") });
+  const removeTag = target.closest("[data-remove-tag]");
+  if (removeTag) return organizerChange(removeTag.closest("[data-org-item]"), { removeTag: removeTag.dataset.removeTag });
+
+  const action = target.closest("[data-action]")?.dataset.action;
+  if (action && /-(folder|subfolder|list|folders)$/.test(action)) {
+    return organizationAction(action).catch((error) => toast(error.message));
+  }
+  if (action === "clear-filters") return clearFilters();
+  if (action === "clear-all") return setParams((params) => { for (const key of [...params.keys()]) params.delete(key); });
+  if (action === "toggle-authors") {
+    state.authorExpanded = !state.authorExpanded;
+    return renderFacets();
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const target = event.target;
+  if (target.matches("[data-multi]")) return toggleListValue(target.dataset.multi, target.value, target.checked);
+  if (target.matches("[data-date]")) return setDateFilter(target.dataset.date, target.value);
+  if (target.matches("[data-range]")) return setDateRange(target.dataset.range, target.dataset.edge, target.value);
+
+  const organizer = target.closest("[data-org-item]");
+  if (organizer) {
+    if (target.matches("[data-add-tag]")) return commitTagInput(target);
+    if (target.matches("[data-physical]")) return organizerChange(organizer, { physical: { owned: target.checked } });
+    if (target.matches("[data-physical-location]")) return organizerChange(organizer, { physical: { owned: true, location: target.value } });
+    if (target.matches("[data-volume-name], [data-volume-location], [data-add-volume]")) return volumesChange(organizer);
+    if (target.matches("[data-in-folder]")) return organizerChange(organizer, { folder: target.dataset.inFolder, checked: target.checked });
+    if (target.matches("[data-in-list]")) return organizerChange(organizer, { list: target.dataset.inList, checked: target.checked });
+  }
+  if (target.matches("[data-list-in-folder]")) {
+    const listId = target.closest("[data-org-list]").dataset.orgList;
+    return api(`/api/folders/${target.dataset.listInFolder}/lists/${listId}`, { method: target.checked ? "PUT" : "DELETE" })
+      .catch((error) => toast(error.message));
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.matches("[data-item-search]")) return searchItemsFor(event.target);
+  if (event.target.matches("[data-author-search]")) {
+    state.authorFilter = event.target.value;
+    renderFacets();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && event.target.matches?.("[data-add-tag]")) {
+    event.preventDefault();
+    return commitTagInput(event.target);
+  }
+  if (event.key === "Escape") return closeOverlays();
+  const typing = event.target.closest("input, textarea, select, [contenteditable]");
+  if (event.key === "/" && !typing && lastView === "library") {
+    event.preventDefault();
+    $("search").focus();
+    $("search").select();
+  }
+});
+
+// ---------- agregar y cola ----------
+
+$("download-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const errorBox = $("form-error");
+  errorBox.hidden = true;
+  const urls = $("urls").value.split(/\s+/).filter(Boolean);
+  try {
+    const jobs = await enqueue(urls, { format: $("format").value, images: $("images").value, comments: $("comments").checked });
+    // Con una sola URL abrimos el articulo apenas termina la ingesta.
+    state.openWhenDone = jobs.length === 1 ? jobs[0].id : null;
+    $("urls").value = "";
+  } catch (error) {
+    errorBox.textContent = error.message;
+    errorBox.hidden = false;
+  }
+});
+
+async function enqueue(urls, options) {
+  const { jobs } = await api("/api/jobs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ urls, options }),
+  });
+  toast(jobs.length === 1 ? "Descarga en cola" : `${jobs.length} descargas en cola`);
+  return jobs;
+}
+
+$("clear-jobs").addEventListener("click", () => api("/api/jobs", { method: "DELETE" }));
+
+function renderJobs() {
+  const pending = state.jobs.filter((job) => job.status === "queued" || job.status === "running").length;
+  $("jobs-pill").textContent = pending;
+  $("jobs-pill").hidden = pending === 0;
+  $("clear-jobs").hidden = !state.jobs.some((job) => job.status === "done" || job.status === "error");
+
+  if (state.jobs.length === 0) {
+    $("jobs").innerHTML = '<div class="empty">Nada en curso.</div>';
+    return;
+  }
+  $("jobs").innerHTML = state.jobs.map((job) => {
+    let detail = "";
+    if (job.status === "running") {
+      detail = `<div class="job-detail"><span class="spinner"></span> ${escapeHtml(STAGES[job.stage] ?? "Iniciando navegador")}</div>`;
+    } else if (job.status === "error") {
+      detail = `<div class="job-detail err">${escapeHtml(job.error)}</div>`;
+    } else if (job.status === "done") {
+      const parts = [];
+      if (job.options.comments) parts.push(`${job.reply_count} comentarios`);
+      if (job.failures.length) parts.push(`${job.failures.length} aviso(s) de providers`);
+      if (parts.length) detail = `<div class="job-detail">${escapeHtml(parts.join(" · "))}</div>`;
+    }
+    const title = job.title
+      ? `<span class="job-title">${escapeHtml(job.title)}</span>`
+      : `<div class="job-url">${escapeHtml(job.url.replace(/^https:\/\//, ""))}</div>`;
+    const status = job.status === "done"
+      ? `<a class="btn small" href="#/a/${encodeURIComponent(job.slug)}">Abrir</a>`
+      : `<span class="badge ${job.status}">${STATUS_LABELS[job.status]}</span>`;
+    return `<div class="job"><div class="job-head">${title}${status}</div>${detail}</div>`;
+  }).join("");
+}
+
+// ---------- carpetas de origen (PDFs) ----------
+
+const SOURCE_RUN_LABELS = { scanning: "Leyendo la carpeta…", hashing: "Identificando archivos", processing: "Archivando y leyendo texto" };
+
+function sourceSummary(summary) {
+  const parts = [`${summary.scanned} PDF${summary.scanned === 1 ? "" : "s"} en la carpeta`];
+  if (summary.created) parts.push(`${summary.created} nuevo${summary.created === 1 ? "" : "s"}`);
+  if (summary.new_versions) parts.push(`${summary.new_versions} con versión nueva`);
+  if (summary.moved) parts.push(`${summary.moved} movido${summary.moved === 1 ? "" : "s"} o renombrado${summary.moved === 1 ? "" : "s"}`);
+  if (summary.missing) parts.push(`${summary.missing} ya no está${summary.missing === 1 ? "" : "n"}`);
+  if (summary.failures) parts.push(`${summary.failures} no se pudieron procesar`);
+  if (!summary.created && !summary.new_versions && !summary.moved && !summary.missing) parts.push("sin cambios");
+  return parts.join(" · ");
+}
+
+function renderSources(sources) {
+  const previous = new Map((state.sources ?? []).map((source) => [source.id, source.run?.status]));
+  state.sources = sources;
+  $("sources").innerHTML = sources.map((source) => {
+    const run = source.run;
+    const busy = run && run.status in SOURCE_RUN_LABELS;
+    let status = "";
+    if (busy) {
+      status = `<div class="sync-line"><strong>${SOURCE_RUN_LABELS[run.status]}</strong><span>${run.total ? `${run.done} de ${run.total}` : ""}</span></div>
+        ${progressBar(run.done, run.total, !run.total)}`;
+    } else if (run?.status === "error") {
+      status = `<div class="notice">${escapeHtml(run.error)}</div>`;
+    } else if (run?.status === "done") {
+      status = `<p class="sync-sub">${escapeHtml(sourceSummary(run.summary))}. <a href="#/?sort=downloaded">Ver en la biblioteca</a></p>`;
+    }
+    return `<div class="source" data-source="${escapeHtml(source.id)}">
+      <div class="source-head"><strong>${escapeHtml(source.label)}</strong>
+        <span>${source.file_count} PDF${source.file_count === 1 ? "" : "s"}${source.last_synced_at ? ` · sincronizada ${formatDate(source.last_synced_at)}` : ""}</span></div>
+      <code>${escapeHtml(source.path)}</code>
+      ${status}
+      <div class="source-tools">
+        <select data-source-policy aria-label="Qué hacer con los archivos de ${escapeHtml(source.label)}" ${busy ? "disabled" : ""}>
+          <option value="archive" ${source.policy === "archive" ? "selected" : ""}>Archivar copia</option>
+          <option value="reference" ${source.policy === "reference" ? "selected" : ""}>Solo referenciar</option>
+        </select>
+        <span class="spacer"></span>
+        <button class="btn small ghost danger" type="button" data-source-remove ${busy ? "disabled" : ""}>Quitar</button>
+        <button class="btn small" type="button" data-source-sync ${busy ? "disabled" : ""}>Sincronizar</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Al terminar una sincronizacion, la biblioteca tiene items nuevos.
+  const finished = sources.some((source) => source.run?.status === "done" && previous.has(source.id) && previous.get(source.id) !== "done");
+  if (finished && lastView === "library") loadLibrary();
+}
+
+async function loadSources() {
+  renderSources((await api("/api/sources")).sources);
+}
+
+$("source-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const errorBox = $("source-error");
+  errorBox.hidden = true;
+  try {
+    await api("/api/sources", jsonInit("POST", { path: $("source-path").value, policy: $("source-policy").value }));
+    $("source-path").value = "";
+    await loadSources();
+  } catch (error) {
+    errorBox.textContent = error.message;
+    errorBox.hidden = false;
+  }
+});
+
+$("sources").addEventListener("click", async (event) => {
+  const id = event.target.closest("[data-source]")?.dataset.source;
+  if (!id) return;
+  try {
+    if (event.target.closest("[data-source-sync]")) {
+      await api(`/api/sources/${id}/sync`, { method: "POST" });
+    } else if (event.target.closest("[data-source-remove]")) {
+      const source = state.sources.find((candidate) => candidate.id === id);
+      const sure = await ask({
+        title: `Quitar la carpeta “${source.label}”`,
+        message: "Los items siguen en tu biblioteca y no se borra nada del disco. Los archivos que no estén archivados dejan de poder abrirse.",
+        ok: "Quitar", danger: true,
+      });
+      if (!sure) return;
+      await api(`/api/sources/${id}`, { method: "DELETE" });
+    } else {
+      return;
+    }
+    await loadSources();
+  } catch (error) {
+    toast(error.message);
+  }
+});
+
+$("sources").addEventListener("change", async (event) => {
+  if (!event.target.matches("[data-source-policy]")) return;
+  const id = event.target.closest("[data-source]").dataset.source;
+  try {
+    await api(`/api/sources/${id}`, jsonInit("PATCH", { policy: event.target.value }));
+    toast(event.target.value === "archive" ? "Se archivan en la próxima sincronización" : "Los nuevos solo se van a referenciar");
+  } catch (error) {
+    toast(error.message);
+  }
+  loadSources();
+});
+
+// ---------- registrar y editar items sin fuente ----------
+
+function itemFieldsHtml(item = {}) {
+  const kinds = Object.entries(KIND_LABELS).filter(([value]) => value !== "article");
+  return `<div class="field-grid">
+      <label class="field">Tipo
+        <select name="kind">${kinds.map(([value, label]) => `<option value="${value}" ${item.kind === value ? "selected" : ""}>${label}</option>`).join("")}</select>
+      </label>
+      <label class="field">Fecha de publicación
+        <input type="text" name="published" value="${escapeHtml(item.published ?? "")}" placeholder="2019, 2019-03 o 2019-03-14" pattern="\\d{4}(-\\d{2}(-\\d{2})?)?" title="Año, año-mes o año-mes-día">
+      </label>
+      <label class="field">Idioma
+        <select name="language">
+          <option value="">Sin indicar</option>
+          ${Object.entries(LANGUAGE_NAMES).map(([value, label]) => `<option value="${value}" ${item.language === value ? "selected" : ""}>${label}</option>`).join("")}
+          ${item.language && !LANGUAGE_NAMES[item.language] ? `<option value="${escapeHtml(item.language)}" selected>${escapeHtml(item.language)}</option>` : ""}
+        </select>
+      </label>
+      <label class="field">Páginas
+        <input type="number" name="pages" min="1" step="1" value="${escapeHtml(item.pages ?? "")}" placeholder="${escapeHtml(item.file_pages ? `${item.file_pages} (del PDF)` : "320")}">
+      </label>
+    </div>
+    <label class="field">Título
+      <input type="text" name="title" value="${escapeHtml(item.title ?? "")}" required>
+    </label>
+    <label class="field">Autores (separados por coma)
+      <input type="text" name="authors" value="${escapeHtml((item.authors ?? []).join(", "))}">
+    </label>
+    <label class="field">Notas
+      <textarea name="notes" spellcheck="true">${escapeHtml(item.notes ?? "")}</textarea>
+    </label>`;
+}
+
+const splitCommas = (value) => value.split(",").map((entry) => entry.trim()).filter(Boolean);
+
+function readItemFields(form) {
+  const fields = Object.fromEntries(new FormData(form));
+  return {
+    kind: fields.kind,
+    title: fields.title,
+    authors: splitCommas(fields.authors),
+    published: fields.published.trim() || null,
+    language: fields.language || null,
+    pages: fields.pages ? Number(fields.pages) : null,
+    notes: fields.notes,
+  };
+}
+
+$("register-fields").innerHTML = itemFieldsHtml();
+$("register-physical").addEventListener("change", () => {
+  $("register-location-field").hidden = !$("register-physical").checked;
+});
+$("register-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const errorBox = $("register-error");
+  errorBox.hidden = true;
+  try {
+    const item = await api("/api/items", jsonInit("POST", {
+      ...readItemFields(form),
+      tags: splitCommas($("register-tags").value),
+      physical: { owned: $("register-physical").checked, location: $("register-location").value },
+    }));
+    form.reset();
+    $("register-location-field").hidden = true;
+    toast("Registrado en la biblioteca");
+    location.hash = `#/i/${encodeURIComponent(item.id)}`;
+  } catch (error) {
+    errorBox.textContent = error.message;
+    errorBox.hidden = false;
+  }
+});
+
+// Tapa del item: la de la editorial, la pagina 1 del PDF o una foto propia.
+function coverBoxHtml(item) {
+  const origin = item.cover?.origin;
+  const originHtml = !origin ? "" : /^https?:\/\//.test(origin)
+    ? `<p class="cover-origin">Fuente: <a href="${escapeHtml(origin)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(origin).hostname)}</a></p>`
+    : `<p class="cover-origin">${escapeHtml(origin)}</p>`;
+  return `<div class="box" data-cover-item="${escapeHtml(item.id)}"><h3>Tapa</h3>
+    ${item.cover ? `<img class="item-cover" src="${escapeHtml(item.cover.url)}" alt="Tapa de ${escapeHtml(item.title)}">${originHtml}` : '<p class="summary">Sin tapa. Subí una foto de la tapa o una imagen de la editorial.</p>'}
+    <div class="actions">
+      <label class="btn small">${item.cover ? "Cambiar tapa" : "Subir tapa"}<input type="file" accept="image/jpeg,image/png,image/webp" data-cover-file hidden></label>
+      ${item.cover ? '<button class="btn small ghost" type="button" data-cover-remove>Quitar</button>' : ""}
+    </div>
+  </div>`;
+}
+
+document.addEventListener("change", async (event) => {
+  const input = event.target.closest?.("[data-cover-file]");
+  if (!input?.files?.[0]) return;
+  const id = input.closest("[data-cover-item]").dataset.coverItem;
+  const image = input.files[0];
+  try {
+    await api(`/api/items/${encodeURIComponent(id)}/cover`, { method: "PUT", headers: { "content-type": image.type, "x-cover-origin": encodeURIComponent("Subida a mano") }, body: image });
+    renderItem(id);
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest?.("[data-cover-remove]");
+  if (!button) return;
+  const id = button.closest("[data-cover-item]").dataset.coverItem;
+  try {
+    await api(`/api/items/${encodeURIComponent(id)}/cover`, { method: "DELETE" });
+    renderItem(id);
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+async function renderItem(id) {
+  const view = $("item-view");
+  let item;
+  try {
+    [item] = await Promise.all([api(`/api/items/${encodeURIComponent(id)}`), refreshOrganization()]);
+  } catch (error) {
+    view.innerHTML = `<a class="back" href="${state.lastLibraryHash}">← Biblioteca</a><p class="form-error">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  if (currentItemId() !== id) return;
+  // Un articulo de X se lee en el lector, no en la ficha.
+  if (item.source?.ref?.slug) {
+    location.replace(`#/a/${encodeURIComponent(item.source.ref.slug)}`);
+    return;
+  }
+
+  const pages = item.pages ?? item.files[0]?.pages ?? null;
+  const byline = [
+    item.authors.join(", "),
+    formatPublished(item.published),
+    LANGUAGE_NAMES[item.language] ?? item.language,
+    pages ? `${pages} pág.` : "",
+  ].filter(Boolean).join(" · ");
+  const file = item.files[0] ?? null;
+  const available = file && (file.archived || file.locations.length > 0);
+  const pdfUrl = `/api/items/${encodeURIComponent(id)}/file`;
+  const header = `<p class="eyebrow">${escapeHtml(item.kind_label)}</p>
+        <h1>${escapeHtml(item.title)}</h1>
+        <div class="byline">${escapeHtml(byline || "Sin autor registrado")}</div>
+        ${item.notes ? `<p class="notes">${escapeHtml(item.notes)}</p>` : ""}`;
+  const main = file
+    ? `<div>
+        <article class="doc item-head">${header}</article>
+        ${available
+          ? `<iframe class="pdf-frame" src="${pdfUrl}" title="${escapeHtml(item.title)}"></iframe>`
+          : '<div class="notice" style="margin-top:16px">El archivo no está disponible: no está en su carpeta de origen ni archivado en la biblioteca. Si está en un disco externo, conectalo y volvé a sincronizar.</div>'}
+      </div>`
+    : `<article class="doc">${header}
+        <p class="hint">Este item no tiene archivo. Sirve para registrar algo que tenés en papel o que todavía no conseguiste en PDF.</p>
+      </article>`;
+  const fileBox = file ? `<div class="box"><h3>Archivo</h3><div class="file-info">
+          <span class="state ${available ? (file.archived ? "ok" : "") : "warn"}">${!available ? "No disponible" : file.archived ? "Archivado en la biblioteca" : "Referenciado desde su carpeta"}</span>
+          <span>${escapeHtml(file.name)} · ${formatBytes(file.size)}${file.pages ? ` · ${file.pages} página${file.pages === 1 ? "" : "s"}` : ""}</span>
+          <span>${file.searchable ? "Su texto es buscable." : "Sin texto buscable (escaneado o manuscrito)."}</span>
+          ${file.locations.map((location) => `<code>${escapeHtml(location)}</code>`).join("") || '<span class="empty">Ya no está en ninguna carpeta de origen.</span>'}
+          ${item.files.length > 1 ? `<span class="empty">${item.files.length - 1} versión(es) anterior(es) archivada(s).</span>` : ""}
+          ${available ? `<div class="actions" style="margin-top:6px"><a class="btn" href="${pdfUrl}" target="_blank" rel="noopener">Abrir en otra pestaña</a><a class="btn" href="${pdfUrl}?download">Bajar</a></div>` : ""}
+        </div></div>` : "";
+  view.innerHTML = `
+    <a class="back" href="${state.lastLibraryHash}">← Biblioteca</a>
+    <div class="reader">
+      ${main}
+      <div class="panel">
+        ${coverBoxHtml(item)}
+        ${fileBox}
+        <div class="box"><h3>Organizar</h3>${organizerHtml(item)}</div>
+        <div class="box"><h3>Relaciones</h3>${relationsHtml(item)}</div>
+        <div class="box" data-merge-into="${escapeHtml(item.id)}"><h3>Unir con otro item</h3>
+          <p class="summary">Si este material está repetido (por ejemplo, un libro que registraste a mano y su PDF), buscá el otro: este se queda con todo y el otro desaparece.</p>
+          <div class="rel-add">
+            <input type="text" data-item-search placeholder="Buscar el item repetido…" aria-label="Buscar el item a unir" autocomplete="off">
+            <div class="picker" data-picker></div>
+          </div>
+        </div>
+        <div class="box"><h3>Datos</h3>
+          <form class="item-form" id="edit-item">
+            ${itemFieldsHtml({ ...item, file_pages: item.files[0]?.pages })}
+            <div class="form-error" id="edit-error" hidden></div>
+            <div class="add-row" style="margin-top:0">
+              <button class="btn small danger" type="button" id="delete-item">Eliminar de la biblioteca</button>
+              <button class="btn" type="submit">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>`;
+
+  $("edit-item").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await api(`/api/items/${encodeURIComponent(id)}`, jsonInit("PATCH", readItemFields(event.currentTarget)));
+      toast("Guardado");
+      renderItem(id);
+    } catch (error) {
+      $("edit-error").textContent = error.message;
+      $("edit-error").hidden = false;
+    }
+  });
+  $("delete-item").addEventListener("click", async () => {
+    const sure = await ask({
+      title: `Eliminar “${item.title}”`,
+      message: file
+        ? "Se quita de la biblioteca y de todas las carpetas y listas. Su PDF no se borra del disco, y no vuelve a importarse al sincronizar."
+        : "Se quita de la biblioteca y de todas las carpetas y listas. No se puede deshacer.",
+      ok: "Eliminar", danger: true,
+    });
+    if (!sure) return;
+    try {
+      await api(`/api/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+      location.hash = state.lastLibraryHash;
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+}
+
+// ---------- sincronizar bookmarks ----------
+
+const SYNC_STATE_LABELS = {
+  found: "Encontrado", queued: "En cola", running: "Descargando", retrying: "Reintentando",
+  done: "Listo", error: "Error", cancelled: "Cancelado", skipped: "Omitido",
+};
+const SYNC_BADGES = { running: "running", retrying: "running", done: "done", error: "error" };
+
+function loadSyncSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("sync-settings") || "null");
+    if (!saved) return;
+    $("sync-auto").checked = saved.auto !== false;
+    $("sync-limit-on").checked = saved.limit !== null;
+    if (saved.limit) $("sync-limit").value = saved.limit;
+  } catch {}
+}
+
+function syncSettings() {
+  return {
+    auto: $("sync-auto").checked,
+    limit: $("sync-limit-on").checked ? Number($("sync-limit").value) || 20 : null,
+  };
+}
+
+// "Revisar todo" es de una sola vez: no se guarda con el resto de las preferencias.
+function syncRequest() {
+  return { ...syncSettings(), full: $("sync-full").checked };
+}
+
+for (const id of ["sync-auto", "sync-limit-on", "sync-limit"]) {
+  $(id).addEventListener("change", () => {
+    $("sync-limit").disabled = !$("sync-limit-on").checked;
+    try { localStorage.setItem("sync-settings", JSON.stringify(syncSettings())); } catch {}
+  });
+}
+
+$("sync-start").addEventListener("click", async () => {
+  try {
+    await api("/api/sync", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(syncRequest()),
+    });
+    $("sync-full").checked = false;
+  } catch (error) {
+    toast(error.message);
+  }
+});
+
+$("sync-stop").addEventListener("click", () => api("/api/sync/stop", { method: "POST" }).catch((error) => toast(error.message)));
+
+$("sync-status").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-sync-action]");
+  if (!button) return;
+  if (button.dataset.syncAction === "download") {
+    const urls = [...$("sync-status").querySelectorAll("input[data-sync-url]:checked")].map((input) => input.value);
+    try {
+      await api("/api/sync/download", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ urls }),
+      });
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+  if (button.dataset.syncAction === "toggle-all") {
+    const inputs = [...$("sync-status").querySelectorAll("input[data-sync-url]")];
+    const checkAll = inputs.some((input) => !input.checked);
+    for (const input of inputs) input.checked = checkAll;
+    updateReviewButton();
+  }
+});
+
+$("sync-status").addEventListener("change", (event) => {
+  if (event.target.matches("input[data-sync-url]")) updateReviewButton();
+});
+
+function updateReviewButton() {
+  const button = $("sync-status").querySelector('[data-sync-action="download"]');
+  if (!button) return;
+  const count = $("sync-status").querySelectorAll("input[data-sync-url]:checked").length;
+  button.textContent = `Descargar seleccionados (${count})`;
+  button.disabled = count === 0;
+}
+
+function progressBar(value, total, indeterminate = false) {
+  const percent = total ? Math.round((value / total) * 100) : 0;
+  return `<div class="progress ${indeterminate ? "indeterminate" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${value}">
+    <span style="width:${percent}%"></span></div>`;
+}
+
+function syncItemsHtml(items, { review = false } = {}) {
+  return `<ul class="sync-items">${items.map((item) => {
+    const lead = review
+      ? `<input type="checkbox" data-sync-url value="${escapeHtml(item.url)}" checked aria-label="Descargar ${escapeHtml(item.title ?? item.url)}">`
+      : "";
+    const status = item.state === "done"
+      ? `<a class="btn small" href="#/a/${encodeURIComponent(item.slug)}">Abrir</a>`
+      : review ? "" : `<span class="badge ${SYNC_BADGES[item.state] ?? ""}">${SYNC_STATE_LABELS[item.state] ?? item.state}</span>`;
+    const detail = item.state === "error"
+      ? `<small class="err">${escapeHtml(item.error)}</small>`
+      : `<small>${escapeHtml(item.author ?? "")}</small>`;
+    return `<li>${lead}<div class="t"><div>${escapeHtml(item.title ?? item.url)}</div>${detail}</div>${status}</li>`;
+  }).join("")}</ul>`;
+}
+
+function renderSync(sync) {
+  if (!sync) return;
+  const busy = sync.status === "scanning" || sync.status === "downloading";
+  $("sync-start").disabled = busy || !sync.cdp_configured;
+  $("sync-start").textContent = sync.status === "idle" ? "Sincronizar bookmarks" : "Sincronizar de nuevo";
+  $("sync-stop").hidden = !(busy || sync.status === "review");
+  const cached = sync.cache?.size ?? 0;
+  $("sync-cache").textContent = cached
+    ? `Ya revisé ${cached.toLocaleString("es")} bookmarks (${formatDate(sync.cache.updated_at)}): la próxima sincronización lee solo los nuevos.`
+    : "Lee tus bookmarks hasta llegar a los artículos que ya tenés en la biblioteca.";
+
+  const box = $("sync-status");
+  if (!sync.cdp_configured) {
+    box.innerHTML = `<div class="notice">Para leer tus bookmarks, abrí tu navegador con sesión de X por CDP y levantá la web con
+      <code>X_BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222 npm run web</code>.</div>`;
+    return;
+  }
+
+  const counts = sync.counts ?? {};
+  const scan = sync.scan;
+  const limit = sync.settings.limit;
+  const foundCount = sync.items.length;
+  const scanSummary = `${scan.scanned} bookmark${scan.scanned === 1 ? "" : "s"} ${scan.incremental ? "nuevos " : ""}revisados · ${scan.known} ya estaban en tu biblioteca`;
+
+  if (sync.status === "idle") {
+    box.innerHTML = "";
+    return;
+  }
+  if (sync.status === "scanning") {
+    box.innerHTML = `<div class="sync-line"><strong>Leyendo tus bookmarks…</strong><span>${foundCount}${limit ? ` de ${limit}` : ""} artículos nuevos</span></div>
+      ${progressBar(foundCount, limit ?? 0, !limit)}
+      <p class="sync-sub">${scanSummary}</p>
+      ${foundCount ? syncItemsHtml(sync.items) : ""}`;
+    return;
+  }
+  if (sync.status === "review") {
+    box.innerHTML = `<div class="sync-line"><strong>Encontré ${foundCount} artículo${foundCount === 1 ? "" : "s"} nuevo${foundCount === 1 ? "" : "s"}</strong><span>${scan.scanned} revisados</span></div>
+      <p class="sync-sub">${scanSummary}. Elegí cuáles descargar.</p>
+      ${syncItemsHtml(sync.items, { review: true })}
+      <div class="sync-review">
+        <button class="btn small ghost" type="button" data-sync-action="toggle-all">Seleccionar / quitar todos</button>
+        <button class="btn dark" type="button" data-sync-action="download">Descargar seleccionados (${foundCount})</button>
+      </div>`;
+    return;
+  }
+
+  const selected = sync.items.filter((item) => item.state !== "skipped");
+  const finished = (counts.done ?? 0) + (counts.error ?? 0) + (counts.cancelled ?? 0);
+  const current = sync.items.find((item) => item.state === "running");
+
+  if (sync.status === "downloading") {
+    box.innerHTML = `<div class="sync-line"><strong>Descargando ${Math.min(finished + 1, selected.length)} de ${selected.length}</strong><span>${counts.done ?? 0} listos${counts.error ? ` · ${counts.error} con error` : ""}</span></div>
+      ${progressBar(finished, selected.length)}
+      <p class="sync-sub">${current ? `Ahora: ${escapeHtml(current.title ?? current.url)}` : "Preparando la siguiente descarga…"}</p>
+      ${syncItemsHtml(selected)}`;
+    return;
+  }
+
+  let headline;
+  if (sync.status === "error") {
+    headline = `<div class="notice">${escapeHtml(sync.error)}</div>`;
+  } else if (sync.status === "cancelled") {
+    headline = `<div class="sync-line"><strong>Sincronización detenida</strong><span>${counts.done ?? 0} descargados</span></div>`;
+  } else if (foundCount === 0) {
+    headline = `<div class="sync-line"><strong>Tu biblioteca está al día</strong><span>${scan.scanned} revisados</span></div>
+      <p class="sync-sub">${scan.reached_seen
+        ? "No guardaste artículos nuevos desde la última sincronización."
+        : `No hay artículos nuevos${limit && !scan.complete ? " entre tus bookmarks más recientes" : " en tus bookmarks"}.`}</p>`;
+  } else {
+    headline = `<div class="sync-line"><strong>Listo: ${counts.done ?? 0} artículo${counts.done === 1 ? "" : "s"} nuevo${counts.done === 1 ? "" : "s"} en tu biblioteca</strong><span>${counts.error ? `${counts.error} con error` : ""}</span></div>
+      ${progressBar(1, 1)}
+      <p class="sync-sub">${scanSummary}. <a href="#/?sort=downloaded">Ver en la biblioteca</a></p>`;
+  }
+  box.innerHTML = headline + (selected.length ? syncItemsHtml(selected) : "");
+}
+
+function connectEvents() {
+  const source = new EventSource("/api/events");
+  source.onmessage = (event) => {
+    const previous = new Map(state.jobs.map((job) => [job.id, job.status]));
+    const payload = JSON.parse(event.data);
+    state.jobs = payload.jobs;
+    renderJobs();
+    // Mientras se elige una politica no se redibuja: cerraria el desplegable.
+    if (payload.sources && !document.activeElement?.matches?.("[data-source-policy]")) renderSources(payload.sources);
+    // En revision no re-renderizamos: perderia las casillas que el usuario destildo.
+    if (!(payload.sync?.status === "review" && state.sync?.status === "review")) renderSync(payload.sync);
+    state.sync = payload.sync;
+
+    const finished = state.jobs.filter((job) => job.status === "done" && previous.has(job.id) && previous.get(job.id) !== "done");
+    if (finished.length === 0) return;
+    const opened = finished.find((job) => job.id === state.openWhenDone);
+    if (opened && lastView === "add") {
+      state.openWhenDone = null;
+      location.hash = `#/a/${encodeURIComponent(opened.slug)}`;
+      return;
+    }
+    const slug = currentSlug();
+    if (!slug) loadLibrary();
+    else if (finished.some((job) => job.slug === slug)) renderReader(slug);
+  };
+}
+
+// ---------- lector ----------
+
+const resolveImageSrc = (slug, src) => /^https?:\/\//.test(src) ? src : fileUrl(slug, src);
+
+function renderBlock(block, slug) {
+  switch (block.type) {
+    case "paragraph": return `<p>${inline(block.text)}</p>`;
+    case "heading": {
+      const level = Math.max(2, Math.min(block.level ?? 2, 4));
+      return `<h${level}>${inline(String(block.text).replace(/^[*_`]+|[*_`]+$/g, ""))}</h${level}>`;
+    }
+    case "blockquote": return `<blockquote>${inline(block.text).replace(/\n/g, "<br>")}</blockquote>`;
+    case "list": {
+      const tag = block.ordered ? "ol" : "ul";
+      return `<${tag}>${block.items.map((item) => `<li>${inline(item)}</li>`).join("")}</${tag}>`;
+    }
+    case "separator": return "<hr>";
+    case "code": return `<pre><code>${escapeHtml(block.text)}</code></pre>`;
+    case "image": return `<img src="${escapeHtml(resolveImageSrc(slug, block.src))}" alt="${escapeHtml(block.alt ?? "")}" loading="lazy">`;
+    case "embedded_post": {
+      const who = [block.author?.name, block.author?.handle].filter(Boolean);
+      const images = (block.images ?? []).map((image) => `<img src="${escapeHtml(resolveImageSrc(slug, image.src))}" alt="" loading="lazy">`).join("");
+      return `<div class="embed">
+        <div class="who">${escapeHtml(who[0] ?? "Post embebido")} <span>${escapeHtml(who.slice(1).join(" "))}${block.date_text ? ` · ${escapeHtml(block.date_text)}` : ""}</span></div>
+        <p>${escapeHtml(block.text)}</p>${images}
+        ${block.url ? `<a href="${escapeHtml(block.url)}" target="_blank" rel="noopener">Ver en X</a>` : ""}
+      </div>`;
+    }
+    default: return "";
+  }
+}
+
+function renderSignals(signals) {
+  if (!signals) return "";
+  const boxes = [];
+  const metricLabels = { likes: "likes", replies: "replies", reposts: "reposts", quotes: "quotes", bookmarks: "guardados", impressions: "vistas" };
+  const metrics = Object.entries(metricLabels).filter(([key]) => signals.metrics?.[key] != null);
+  if (metrics.length) {
+    boxes.push(`<div class="box"><h3>Métricas</h3><div class="metrics">
+      ${metrics.map(([key, label]) => `<div class="metric"><strong>${formatNumber(signals.metrics[key])}</strong><span>${label}</span></div>`).join("")}
+    </div></div>`);
+  }
+  const replies = signals.conversation?.top_replies ?? [];
+  const themes = signals.conversation?.recurring_themes ?? [];
+  if (replies.length || themes.length) {
+    boxes.push(`<div class="box"><h3>Comentarios <span class="badge">${replies.length}</span></h3>
+      ${themes.length ? `<div class="tags" style="margin-bottom:12px">${themes.map((theme) => `<span>${escapeHtml(theme.theme)} · ${theme.mentions}</span>`).join("")}</div>` : ""}
+      ${replies.map((reply) => `<div class="reply">
+        <div class="who">${escapeHtml(reply.author?.name ?? reply.author?.handle ?? "Anónimo")}
+          ${reply.url ? `<a href="${escapeHtml(reply.url)}" target="_blank" rel="noopener">${escapeHtml(reply.author?.handle ?? "ver")}</a>` : ""}</div>
+        <p>${escapeHtml(reply.text)}</p>
+        ${reply.metrics?.views ? `<div class="views">${formatNumber(reply.metrics.views)} vistas</div>` : ""}
+      </div>`).join("")}
+    </div>`);
+  }
+  const failures = signals.provider_trace?.failures ?? [];
+  const summary = signals.awareness?.summary;
+  if (summary || failures.length) {
+    boxes.push(`<div class="box"><h3>Awareness</h3>
+      ${summary ? `<p class="summary">${escapeHtml(summary)}</p>` : ""}
+      ${failures.length ? `<ul class="failures">${failures.map((failure) => `<li>${escapeHtml(typeof failure === "string" ? failure : [failure.provider ?? failure.step, failure.detail ?? failure.message].filter(Boolean).join(": "))}</li>`).join("")}</ul>` : ""}
+    </div>`);
+  }
+  return boxes.join("");
+}
+
+async function renderReader(slug) {
+  const view = $("reader-view");
+  let data;
+  try {
+    data = await api(`/api/articles/${encodeURIComponent(slug)}`);
+  } catch (error) {
+    view.innerHTML = `<a class="back" href="${state.lastLibraryHash}">← Biblioteca</a><p class="form-error">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  if (currentSlug() !== slug) return;
+
+  const { summary, document: doc, signals, markdown } = data;
+  const body = doc
+    ? doc.article.blocks.map((block) => renderBlock(block, slug)).join("")
+    : `<pre class="raw">${escapeHtml(markdown ?? "")}</pre>`;
+  const byline = [summary.author_name, summary.author_handle].filter(Boolean).join(" ");
+
+  view.innerHTML = `
+    <a class="back" href="${state.lastLibraryHash}">← Biblioteca</a>
+    <div class="reader">
+      <article class="doc">
+        <h1>${escapeHtml(summary.title)}</h1>
+        <div class="byline">${avatarHtml(doc?.source.author_avatar)}${escapeHtml(byline)} · descargado ${formatDate(summary.fetched_at)} · ${summary.word_count.toLocaleString("es")} palabras</div>
+        ${body}
+      </article>
+      <div class="panel">
+        <div class="box actions">
+          ${markdown ? '<button class="btn" id="copy-md" type="button">Copiar Markdown</button>' : ""}
+          ${summary.status_url ? `<a class="btn" href="${escapeHtml(summary.status_url)}" target="_blank" rel="noopener">Abrir en X</a>` : ""}
+          ${summary.status_url ? `<button class="btn" id="refetch" type="button">${summary.reply_count ? "Volver a descargar con comentarios" : "Descargar comentarios"}</button>` : ""}
+        </div>
+        <div class="box"><h3>Organizar</h3><div id="reader-organizer"><div class="empty">Cargando…</div></div></div>
+        <div class="box"><h3>Relaciones</h3><div id="reader-relations"></div></div>
+        ${renderSignals(signals)}
+        <div class="box"><h3>Archivos</h3>
+          <ul class="files">${summary.files.map((file) => `<li>
+            <a href="${fileUrl(slug, file)}" target="_blank"><code>${escapeHtml(file)}</code></a>
+            <a class="btn small" href="${fileUrl(slug, file, true)}">Bajar</a>
+          </li>`).join("")}</ul>
+        </div>
+      </div>
+    </div>`;
+
+  if (data.item_id) {
+    Promise.all([api(`/api/items/${encodeURIComponent(data.item_id)}`), refreshOrganization()])
+      .then(([item]) => {
+        if (currentSlug() !== slug) return;
+        $("reader-organizer").innerHTML = organizerHtml(item);
+        $("reader-relations").innerHTML = relationsHtml(item);
+      })
+      .catch((error) => { $("reader-organizer").innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`; });
+  } else {
+    $("reader-organizer").innerHTML = '<div class="empty">Este artículo todavía no está en el catálogo.</div>';
+  }
+
+  $("copy-md")?.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(markdown);
+    toast("Markdown copiado");
+  });
+  $("refetch")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await enqueue([summary.status_url], { format: "bundle", images: "embed", comments: true });
+    } catch (error) {
+      toast(error.message);
+      button.disabled = false;
+    }
+  });
+}
+
+// ---------- router ----------
+
+function currentSlug() {
+  const match = location.hash.match(/^#\/a\/(.+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function currentItemId() {
+  const match = location.hash.match(/^#\/i\/(.+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+let lastView = null;
+function route() {
+  const slug = currentSlug();
+  const itemId = currentItemId();
+  const view = slug ? "reader" : itemId ? "item" : location.hash === "#/agregar" ? "add" : location.hash === "#/grafo" ? "graph" : "library";
+  // Los filtros cambian el hash; solo cerramos paneles al pasar de vista.
+  if (view !== lastView) closeOverlays();
+  document.body.classList.toggle("no-filters", view !== "library");
+  $("library-view").hidden = view !== "library";
+  $("reader-view").hidden = view !== "reader";
+  $("add-view").hidden = view !== "add";
+  $("item-view").hidden = view !== "item";
+  $("graph-view").hidden = view !== "graph";
+
+  if (view === "graph") {
+    window.scrollTo(0, 0);
+    lastView = "graph";
+    renderGraph();
+    return;
+  }
+  if (view === "add") {
+    window.scrollTo(0, 0);
+    lastView = "add";
+    $("urls").focus();
+    return;
+  }
+  if (slug) {
+    window.scrollTo(0, 0);
+    lastView = "reader";
+    renderReader(slug);
+    return;
+  }
+  if (itemId) {
+    window.scrollTo(0, 0);
+    lastView = "item";
+    renderItem(itemId);
+    return;
+  }
+  state.lastLibraryHash = location.hash || "#/";
+  if (lastView === "reader" || lastView === "item") window.scrollTo(0, state.libraryScroll ?? 0);
+  lastView = "library";
+  loadLibrary();
+}
+
+window.addEventListener("hashchange", route);
+window.addEventListener("scroll", () => {
+  if (lastView === "library") state.libraryScroll = window.scrollY;
+}, { passive: true });
+
+loadSyncSettings();
+loadSources().catch(() => {});
+refreshOrganization().catch(() => {});
+$("sync-limit").disabled = !$("sync-limit-on").checked;
+connectEvents();
+route();
+</script>
+</body>
+</html>
