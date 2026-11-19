@@ -362,11 +362,13 @@
         <div class="sync-controls">
           <label class="check"><input type="checkbox" id="sync-auto" checked> Descargar automáticamente</label>
           <label class="check"><input type="checkbox" id="sync-limit-on" checked> Solo los <input type="number" id="sync-limit" value="20" min="1" max="1000" aria-label="Cantidad de artículos"> más recientes</label>
+          <label class="check" id="sync-full-label" hidden><input type="checkbox" id="sync-full"> Revisar todo el historial</label>
           <div class="sync-actions">
             <button class="btn" type="button" id="sync-stop" hidden>Detener</button>
             <button class="btn dark" type="button" id="sync-start">Sincronizar bookmarks</button>
           </div>
         </div>
+        <p class="sync-sub" id="sync-cache"></p>
         <div class="sync-status" id="sync-status"></div>
       </div>
 
@@ -932,6 +934,11 @@ function syncSettings() {
   };
 }
 
+// "Revisar todo" es de una sola vez: no se guarda con el resto de las preferencias.
+function syncRequest() {
+  return { ...syncSettings(), full: $("sync-full").checked };
+}
+
 for (const id of ["sync-auto", "sync-limit-on", "sync-limit"]) {
   $(id).addEventListener("change", () => {
     $("sync-limit").disabled = !$("sync-limit-on").checked;
@@ -944,8 +951,9 @@ $("sync-start").addEventListener("click", async () => {
     await api("/api/sync", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(syncSettings()),
+      body: JSON.stringify(syncRequest()),
     });
+    $("sync-full").checked = false;
   } catch (error) {
     toast(error.message);
   }
@@ -1015,6 +1023,11 @@ function renderSync(sync) {
   $("sync-start").disabled = busy || !sync.cdp_configured;
   $("sync-start").textContent = sync.status === "idle" ? "Sincronizar bookmarks" : "Sincronizar de nuevo";
   $("sync-stop").hidden = !(busy || sync.status === "review");
+  const cached = sync.cache?.size ?? 0;
+  $("sync-full-label").hidden = cached === 0;
+  $("sync-cache").textContent = cached
+    ? `Ya revisé ${cached.toLocaleString("es")} bookmarks (${formatDate(sync.cache.updated_at)}): la próxima sincronización lee solo los nuevos.`
+    : "La primera sincronización recorre todos tus bookmarks; las siguientes leen solo los nuevos.";
 
   const box = $("sync-status");
   if (!sync.cdp_configured) {
@@ -1027,7 +1040,7 @@ function renderSync(sync) {
   const scan = sync.scan;
   const limit = sync.settings.limit;
   const foundCount = sync.items.length;
-  const scanSummary = `${scan.scanned} bookmarks revisados · ${scan.known} ya estaban en tu biblioteca`;
+  const scanSummary = `${scan.scanned} bookmark${scan.scanned === 1 ? "" : "s"} ${scan.incremental ? "nuevos " : ""}revisados · ${scan.known} ya estaban en tu biblioteca`;
 
   if (sync.status === "idle") {
     box.innerHTML = "";
@@ -1070,7 +1083,9 @@ function renderSync(sync) {
     headline = `<div class="sync-line"><strong>Sincronización detenida</strong><span>${counts.done ?? 0} descargados</span></div>`;
   } else if (foundCount === 0) {
     headline = `<div class="sync-line"><strong>Tu biblioteca está al día</strong><span>${scan.scanned} revisados</span></div>
-      <p class="sync-sub">No hay artículos nuevos${limit && !scan.complete ? " entre tus bookmarks más recientes" : " en tus bookmarks"}.</p>`;
+      <p class="sync-sub">${scan.reached_seen
+        ? "No guardaste artículos nuevos desde la última sincronización."
+        : `No hay artículos nuevos${limit && !scan.complete ? " entre tus bookmarks más recientes" : " en tus bookmarks"}.`}</p>`;
   } else {
     headline = `<div class="sync-line"><strong>Listo: ${counts.done ?? 0} artículo${counts.done === 1 ? "" : "s"} nuevo${counts.done === 1 ? "" : "s"} en tu biblioteca</strong><span>${counts.error ? `${counts.error} con error` : ""}</span></div>
       ${progressBar(1, 1)}

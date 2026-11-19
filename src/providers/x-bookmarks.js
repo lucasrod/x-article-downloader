@@ -5,12 +5,17 @@ import { normalize } from "../web/library.js";
 const BOOKMARKS_URL = "https://x.com/i/bookmarks";
 const SCROLL_PAUSE_MS = 1500;
 const MAX_IDLE_ROUNDS = 5;
+// Los bookmarks nuevos aparecen arriba: al cruzar varios ya revisados seguidos,
+// lo que sigue tambien se reviso en una sincronizacion anterior.
+const SEEN_STOP_RUN = 3;
 
 // Recorre los bookmarks de la sesion abierta en el navegador (via CDP), del mas
 // reciente al mas viejo, y reporta cada Article que todavia no esta en la biblioteca.
+// Con isSeen se detiene al llegar a los bookmarks revisados antes.
 export async function scanBookmarkArticles({
   cdpEndpoint,
   isKnown,
+  isSeen = null,
   limit = null,
   shouldStop = () => false,
   onProgress = () => {},
@@ -28,6 +33,9 @@ export async function scanBookmarkArticles({
   const seen = new Set();
   const titles = new Set();
   const found = [];
+  const ids = [];
+  let seenRun = 0;
+  let reachedSeen = false;
   let scanned = 0;
   let known = 0;
   let duplicates = 0;
@@ -40,18 +48,28 @@ export async function scanBookmarkArticles({
     await page.waitForSelector('[data-testid="tweet"]', { timeout: 30000 });
 
     let idle = 0;
-    while (idle < MAX_IDLE_ROUNDS && !shouldStop() && (limit == null || found.length < limit)) {
+    while (idle < MAX_IDLE_ROUNDS && !reachedSeen && !shouldStop() && (limit == null || found.length < limit)) {
       const batch = await page.evaluate(readVisibleTweets);
       let added = 0;
 
       for (const tweet of batch) {
         if (!tweet.href || seen.has(tweet.href)) continue;
         seen.add(tweet.href);
-        scanned += 1;
         added += 1;
+        const statusId = tweet.href.match(/\/status\/(\d+)/)?.[1] ?? null;
+        if (isSeen && statusId && isSeen(statusId)) {
+          seenRun += 1;
+          if (seenRun >= SEEN_STOP_RUN) {
+            reachedSeen = true;
+            break;
+          }
+          continue;
+        }
+        seenRun = 0;
+        scanned += 1;
+        if (statusId) ids.push(statusId);
         if (!tweet.isArticle) continue;
 
-        const statusId = tweet.href.match(/\/status\/(\d+)/)?.[1] ?? null;
         const titleKey = normalize(tweet.title ?? "");
         if (isKnown({ statusId, titleKey })) {
           known += 1;
@@ -74,7 +92,7 @@ export async function scanBookmarkArticles({
       await page.waitForTimeout(SCROLL_PAUSE_MS);
     }
 
-    return { scanned, known, duplicates, found, complete: idle >= MAX_IDLE_ROUNDS };
+    return { scanned, known, duplicates, found, ids, reachedSeen, complete: idle >= MAX_IDLE_ROUNDS };
   } finally {
     await page.close().catch(() => {});
     await browser.close().catch(() => {});

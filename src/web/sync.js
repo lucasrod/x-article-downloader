@@ -1,8 +1,11 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { scanBookmarkArticles } from "../providers/x-bookmarks.js";
 import { getLibraryKeys } from "./library.js";
 
 const MAX_ATTEMPTS = 2;
 const TERMINAL = new Set(["done", "error", "cancelled", "skipped"]);
+const CACHE_FILE = ".bookmarks-cache.json";
 
 // Sincronizacion de bookmarks: escanear -> (revisar) -> descargar, con un solo
 // proceso a la vez. Las descargas usan la misma cola de jobs que la pagina Agregar.
@@ -10,12 +13,17 @@ export function createBookmarkSync({ root, cdpEndpoint, enqueue, cancelJobs, onC
   let state = initialState();
   let stopRequested = false;
   let enqueuing = false;
+  // Ids de status de todos los bookmarks ya revisados (Articles o no), para que
+  // las sincronizaciones siguientes lean solo los nuevos.
+  const cachePath = path.join(root, CACHE_FILE);
+  let cache = { seen: new Set(), full_scan_at: null, updated_at: null };
+  const cacheLoaded = loadCache();
 
   function initialState() {
     return {
       status: "idle",
-      settings: { auto: true, limit: 20 },
-      scan: { scanned: 0, known: 0, duplicates: 0, complete: false },
+      settings: { auto: true, limit: 20, full: false },
+      scan: { scanned: 0, known: 0, duplicates: 0, complete: false, incremental: false, reached_seen: false },
       items: [],
       error: null,
       started_at: null,
@@ -36,7 +44,7 @@ export function createBookmarkSync({ root, cdpEndpoint, enqueue, cancelJobs, onC
     state = {
       ...initialState(),
       status: "scanning",
-      settings: { auto: settings.auto !== false, limit },
+      settings: { auto: settings.auto !== false, limit, full: settings.full === true },
       started_at: new Date().toISOString(),
     };
     stopRequested = false;
@@ -48,21 +56,37 @@ export function createBookmarkSync({ root, cdpEndpoint, enqueue, cancelJobs, onC
   }
 
   async function scan() {
+    await cacheLoaded;
     const keys = await getLibraryKeys(root);
+    const incremental = !state.settings.full && cache.seen.size > 0;
+    state.scan.incremental = incremental;
     const result = await scanBookmarkArticles({
       cdpEndpoint,
       limit: state.settings.limit,
+      isSeen: incremental ? (statusId) => cache.seen.has(statusId) : null,
       shouldStop: () => stopRequested,
       isKnown: ({ statusId, titleKey }) => keys.statusIds.has(statusId) || (Boolean(titleKey) && keys.titles.has(titleKey)),
       onProgress: (progress) => {
-        state.scan = { scanned: progress.scanned, known: progress.known, duplicates: progress.duplicates, complete: false };
+        state.scan = { ...state.scan, scanned: progress.scanned, known: progress.known, duplicates: progress.duplicates };
         mergeFound(progress.found);
         onChange();
       },
     });
 
-    state.scan = { scanned: result.scanned, known: result.known, duplicates: result.duplicates, complete: result.complete };
+    state.scan = {
+      ...state.scan,
+      scanned: result.scanned,
+      known: result.known,
+      duplicates: result.duplicates,
+      complete: result.complete,
+      reached_seen: result.reachedSeen,
+    };
     mergeFound(result.found);
+    // Solo se guarda un tramo que empalma con lo ya revisado (o llega al final):
+    // si el escaneo corto antes, quedarian bookmarks viejos sin revisar debajo.
+    if (!stopRequested && (result.complete || result.reachedSeen)) {
+      await saveCache(result.ids, result.complete);
+    }
 
     if (stopRequested) return finish("cancelled");
     if (state.items.length === 0) return finish("done");
@@ -182,10 +206,37 @@ export function createBookmarkSync({ root, cdpEndpoint, enqueue, cancelJobs, onC
     onChange();
   }
 
+  async function loadCache() {
+    try {
+      const saved = JSON.parse(await fs.readFile(cachePath, "utf8"));
+      cache = { seen: new Set(saved.seen ?? []), full_scan_at: saved.full_scan_at ?? null, updated_at: saved.updated_at ?? null };
+    } catch {
+      // Sin cache: la primera sincronizacion recorre todo.
+    }
+  }
+
+  async function saveCache(ids, complete) {
+    const now = new Date().toISOString();
+    if (complete) {
+      cache.seen = new Set(ids);
+      cache.full_scan_at = now;
+    } else {
+      for (const id of ids) cache.seen.add(id);
+    }
+    cache.updated_at = now;
+    await fs.mkdir(root, { recursive: true });
+    await fs.writeFile(cachePath, `${JSON.stringify({ seen: [...cache.seen], full_scan_at: cache.full_scan_at, updated_at: cache.updated_at }, null, 2)}\n`);
+  }
+
   function snapshot() {
     const counts = {};
     for (const item of state.items) counts[item.state] = (counts[item.state] ?? 0) + 1;
-    return { ...state, counts, cdp_configured: Boolean(cdpEndpoint) };
+    return {
+      ...state,
+      counts,
+      cdp_configured: Boolean(cdpEndpoint),
+      cache: { size: cache.seen.size, full_scan_at: cache.full_scan_at, updated_at: cache.updated_at },
+    };
   }
 
   return { start, download, stop, updateFromJobs, snapshot };
