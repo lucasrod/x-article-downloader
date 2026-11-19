@@ -54,6 +54,7 @@ export async function searchCatalog({ root, service, params, readFileText = asyn
       year: item.year,
       tags: item.tags,
       physical: item.physical,
+      cover_url: item.cover ? `/api/covers/${item.cover.file}` : null,
       has_source: Boolean(item.source),
       folder_ids: membership.folderIds,
       folder_scope: [...membership.folderScope],

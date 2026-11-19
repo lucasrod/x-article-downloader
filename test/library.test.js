@@ -340,3 +340,46 @@ test("unir items: el que queda suma archivos, etiquetas, carpetas, listas y rela
   // La relacion con el propio libro desaparece; la de las notas pasa al libro.
   assert.deepEqual(described.relations.map((r) => [r.label, r.other.title]), [["es requisito de", "Notas"]]);
 });
+
+test("tapa: dato curado, guardada por huella, sobrevive a sincronizar y pasa al unir", async () => {
+  const stored = new Map();
+  const covers = {
+    put: async (bytes, extension) => {
+      const file = `${"a".repeat(63)}${stored.size}.${extension}`;
+      stored.set(file, bytes);
+      return file;
+    },
+    pathOf: (file) => file,
+  };
+  let counter = 0;
+  const articles = [article("uno", "1")];
+  const service = createLibraryService({
+    repository: createSqliteRepository(":memory:"),
+    sources: [createXArticleSource({ loadArticles: async () => articles })],
+    covers,
+    newId: () => `id-${++counter}`,
+    now: () => `2026-01-01T00:00:${String(counter).padStart(2, "0")}.000Z`,
+  });
+
+  assert.throws(() => createItem({ id: "x", kind: "book", title: "x", cover: { file: "../../etc/passwd" }, now: "t" }), rejectsWith("invalid"));
+
+  const book = await service.registerItem({ kind: "book", title: "Statistical Inference", physical: { owned: true } });
+  const withCover = await service.setItemCover(book.id, { bytes: new Uint8Array([1, 2, 3]), extension: "jpg", origin: " https://covers.example/1.jpg " });
+  assert.deepEqual(withCover.cover, { file: `${"a".repeat(63)}0.jpg`, origin: "https://covers.example/1.jpg" });
+  assert.deepEqual((await service.describeItem(book.id)).item.cover, withCover.cover, "se persiste");
+
+  // Sincronizar refresca lo capturado de un item con fuente y conserva su tapa.
+  await service.syncSources();
+  const x = await service.findItemBySource((await service.snapshot()).items.find((item) => item.source).source.key);
+  await service.setItemCover(x.id, { bytes: new Uint8Array([4]), extension: "png" });
+  articles[0] = article("uno", "1", "Titulo nuevo");
+  await service.syncSources();
+  assert.equal((await service.describeItem(x.id)).item.cover.file, `${"a".repeat(63)}1.png`);
+
+  // Al unir, el que queda conserva su tapa; si no tenia, toma la del otro.
+  const copy = await service.registerItem({ kind: "book", title: "Statistical Inference (PDF)" });
+  await service.mergeItems(copy.id, book.id);
+  assert.deepEqual((await service.describeItem(copy.id)).item.cover, withCover.cover);
+
+  assert.equal((await service.removeItemCover(copy.id)).cover, null);
+});

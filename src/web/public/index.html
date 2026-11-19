@@ -225,6 +225,10 @@
     .row a.has-thumb { grid-template-columns: minmax(0, 1fr) 84px; gap: 12px; }
     .thumb { width: 84px; aspect-ratio: 1; }
   }
+  .row a.has-cover { grid-template-columns: minmax(0, 1fr) 64px; }
+  .thumb.cover { width: 64px; aspect-ratio: auto; height: auto; max-height: 96px; object-fit: contain; border-radius: 3px; background: none; box-shadow: 0 1px 4px rgb(0 0 0 / .25); }
+  .item-cover { display: block; width: 100%; max-width: 220px; height: auto; margin: 0 auto 4px; border-radius: 4px; box-shadow: 0 2px 10px rgb(0 0 0 / .25); }
+  .cover-origin { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; text-align: center; margin: 6px 0 10px; }
   .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--muted); font-size: 13px; }
   .meta .author { color: var(--text); font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
   .avatar { width: 18px; height: 18px; flex: none; object-fit: cover; background: var(--border); border-radius: 50%; vertical-align: middle; }
@@ -839,7 +843,9 @@ function renderLibrary(params) {
       article.embed_count ? `<span>${article.embed_count} embebidos</span>` : "",
       article.reply_count ? `<span>${article.reply_count} comentarios</span>` : "",
     ].filter(Boolean).join("");
-    const thumb = article.thumbnail
+    const thumb = article.cover_url
+      ? `<img class="thumb cover" src="${escapeHtml(article.cover_url)}" alt="" loading="lazy" onerror="this.remove()">`
+      : article.thumbnail
       ? `<img class="thumb" src="${escapeHtml(article.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
       : "";
     const href = article.slug ? `#/a/${encodeURIComponent(article.slug)}` : `#/i/${encodeURIComponent(article.item_id)}`;
@@ -850,7 +856,7 @@ function renderLibrary(params) {
         <button class="btn small ghost" type="button" data-list-move="1" ${index === data.results.length - 1 ? "disabled" : ""} aria-label="Bajar ${label}" title="Bajar">↓</button>` : ""}
         <button class="btn small ghost" type="button" data-list-note aria-label="Nota de ${label}">Nota</button>
         <button class="btn small ghost" type="button" data-list-remove aria-label="Quitar ${label} de la lista">Quitar</button>` : "";
-    return `<li class="row" data-item="${escapeHtml(article.item_id)}" data-index="${index}"><a href="${href}"${thumb ? ' class="has-thumb"' : ""}>
+    return `<li class="row" data-item="${escapeHtml(article.item_id)}" data-index="${index}"><a href="${href}"${thumb ? ` class="has-thumb${article.cover_url ? " has-cover" : ""}"` : ""}>
       <div>
         <h2>${segmentsHtml(article.title_segments)}</h2>
         <div class="meta">${meta}</div>
@@ -1854,6 +1860,46 @@ $("register-form").addEventListener("submit", async (event) => {
   }
 });
 
+// Tapa del item: la de la editorial, la pagina 1 del PDF o una foto propia.
+function coverBoxHtml(item) {
+  const origin = item.cover?.origin;
+  const originHtml = !origin ? "" : /^https?:\/\//.test(origin)
+    ? `<p class="cover-origin">Fuente: <a href="${escapeHtml(origin)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(origin).hostname)}</a></p>`
+    : `<p class="cover-origin">${escapeHtml(origin)}</p>`;
+  return `<div class="box" data-cover-item="${escapeHtml(item.id)}"><h3>Tapa</h3>
+    ${item.cover ? `<img class="item-cover" src="${escapeHtml(item.cover.url)}" alt="Tapa de ${escapeHtml(item.title)}">${originHtml}` : '<p class="summary">Sin tapa. Subí una foto de la tapa o una imagen de la editorial.</p>'}
+    <div class="actions">
+      <label class="btn small">${item.cover ? "Cambiar tapa" : "Subir tapa"}<input type="file" accept="image/jpeg,image/png,image/webp" data-cover-file hidden></label>
+      ${item.cover ? '<button class="btn small ghost" type="button" data-cover-remove>Quitar</button>' : ""}
+    </div>
+  </div>`;
+}
+
+document.addEventListener("change", async (event) => {
+  const input = event.target.closest?.("[data-cover-file]");
+  if (!input?.files?.[0]) return;
+  const id = input.closest("[data-cover-item]").dataset.coverItem;
+  const image = input.files[0];
+  try {
+    await api(`/api/items/${encodeURIComponent(id)}/cover`, { method: "PUT", headers: { "content-type": image.type, "x-cover-origin": encodeURIComponent("Subida a mano") }, body: image });
+    renderItem(id);
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest?.("[data-cover-remove]");
+  if (!button) return;
+  const id = button.closest("[data-cover-item]").dataset.coverItem;
+  try {
+    await api(`/api/items/${encodeURIComponent(id)}/cover`, { method: "DELETE" });
+    renderItem(id);
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
 async function renderItem(id) {
   const view = $("item-view");
   let item;
@@ -1901,6 +1947,7 @@ async function renderItem(id) {
     <div class="reader">
       ${main}
       <div class="panel">
+        ${coverBoxHtml(item)}
         ${fileBox}
         <div class="box"><h3>Organizar</h3>${organizerHtml(item)}</div>
         <div class="box"><h3>Relaciones</h3>${relationsHtml(item)}</div>

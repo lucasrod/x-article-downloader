@@ -29,6 +29,7 @@ Mantener una pipeline X-first:
 - La identidad de un archivo es su SHA-256, no su ruta. Mover o renombrar un PDF conserva su item; editarlo en el lugar agrega una version al mismo item. La decision vive en `domain/folder-sync.js` (funcion pura).
 - Una carpeta de origen tiene politica `archive` (copia en `./library/store/<aa>/<sha256>.pdf`) o `reference` (solo indice). Sus subcarpetas se reflejan como carpetas de biblioteca solo en la primera sincronizacion.
 - Los PDFs sincronizados son items sin fuente: titulo, tipo y autores los corrige el usuario. Un item eliminado deja su archivo marcado como descartado y no vuelve a importarse.
+- La tapa de un item es curada (`item.cover`): una imagen guardada por huella en `./library/covers/<sha256>.<ext>` (`adapters/fs-cover-store.js`), con su origen (URL o "pagina 1 del PDF"). Se sube por `PUT /api/items/<id>/cover`; sincronizar no la pisa y al unir items el que queda conserva la suya o toma la del otro.
 - `pdftotext` es opcional: sin el, los PDFs entran igual pero no son buscables por contenido.
 - Una Relacion es una arista con tipo entre dos items (`domain/relation.js`): requiere, continua, es parte de, cita, se relaciona con. Los tipos que expresan orden no admiten ciclos; "se relaciona con" no tiene direccion. El grafo son los items con alguna relacion.
 - Unir dos items conserva uno y le pasa archivos, etiquetas, carpetas, listas y relaciones del otro. Un item con fuente no puede ser el absorbido.

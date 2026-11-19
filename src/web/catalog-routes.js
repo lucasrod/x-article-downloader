@@ -9,7 +9,7 @@ import { organization } from "./catalog-search.js";
 
 const STATUS_BY_CODE = { invalid: 400, not_found: 404, conflict: 409 };
 
-export function createCatalogRoutes({ service, sources, readJsonBody }) {
+export function createCatalogRoutes({ service, sources, covers, readJsonBody, readImageBody }) {
   return async function routeCatalog({ method, parts, request }) {
     try {
       return await dispatch({ method, parts, request });
@@ -42,6 +42,20 @@ export function createCatalogRoutes({ service, sources, readJsonBody }) {
         return describe(id);
       }
       if (method === "DELETE" && parts.length === 3) return done(await service.removeItem(id));
+      if (parts.length === 4 && sub === "cover") {
+        if (method === "PUT") {
+          const { bytes, contentType } = await readImageBody(request);
+          const extension = covers.extensionFor(contentType);
+          if (!extension) throw Object.assign(new Error("La tapa tiene que ser JPEG, PNG o WebP."), { status: 415 });
+          const origin = request.headers["x-cover-origin"] ? decodeURIComponent(request.headers["x-cover-origin"]) : null;
+          await service.setItemCover(id, { bytes, extension, origin });
+          return describe(id);
+        }
+        if (method === "DELETE") {
+          await service.removeItemCover(id);
+          return describe(id);
+        }
+      }
       if (method === "POST" && parts.length === 4 && sub === "merge") {
         await service.mergeItems(id, (await body()).other_id);
         return describe(id);
@@ -178,6 +192,7 @@ function itemView(item) {
     notes: item.notes,
     tags: item.tags,
     physical: item.physical,
+    cover: item.cover ? { url: `/api/covers/${item.cover.file}`, origin: item.cover.origin } : null,
     source: item.source,
     created_at: item.createdAt,
     updated_at: item.updatedAt,

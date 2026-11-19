@@ -6,13 +6,16 @@ import { invalid, requireName } from "./errors.js";
 // Un item separa lo capturado de lo curado:
 // - capturado (title, authors): si el item tiene `source`, lo dicta la fuente
 //   y se refresca en cada sincronizacion;
-// - curado (tags, physical, notes): es del usuario y la sincronizacion no lo toca.
+// - curado (tags, physical, notes, cover): es del usuario y la sincronizacion no lo toca.
+//
+// La tapa (`cover`) es una imagen guardada por huella: `file` es
+// "<sha256>.<ext>" y `origin` dice de donde salio (una URL, "pagina 1 del PDF").
 
 export const ITEM_KINDS = ["article", "book", "paper", "notes", "slides", "problem-set", "handwritten", "document"];
 
 const MAX_TAG_LENGTH = 50;
 
-export function createItem({ id, kind, title, authors = [], year = null, notes = "", tags = [], physical = null, source = null, now }) {
+export function createItem({ id, kind, title, authors = [], year = null, notes = "", tags = [], physical = null, cover = null, source = null, now }) {
   if (!ITEM_KINDS.includes(kind)) {
     throw invalid(`Tipo de item desconocido: ${kind}.`);
   }
@@ -25,6 +28,7 @@ export function createItem({ id, kind, title, authors = [], year = null, notes =
     notes: String(notes ?? "").trim(),
     tags: normalizeTags(tags),
     physical: normalizePhysical(physical),
+    cover: normalizeCover(cover),
     source: source ? { key: String(source.key), ref: source.ref ?? {} } : null,
     createdAt: now,
     updatedAt: now,
@@ -50,6 +54,7 @@ export function reviseItem(item, changes, now) {
   if ("tags" in changes) next.tags = normalizeTags(changes.tags);
   // Un cambio parcial (solo la ubicacion, solo los tomos) conserva el resto.
   if ("physical" in changes) next.physical = normalizePhysical({ ...item.physical, ...changes.physical });
+  if ("cover" in changes) next.cover = normalizeCover(changes.cover);
   return next;
 }
 
@@ -84,6 +89,7 @@ export function absorbItem(target, absorbed, now) {
     notes: [target.notes, absorbed.notes].filter(Boolean).join("\n\n"),
     tags: normalizeTags([...target.tags, ...absorbed.tags]),
     physical: target.physical.owned ? target.physical : absorbed.physical,
+    cover: target.cover ?? absorbed.cover ?? null,
     updatedAt: now,
   };
 }
@@ -143,6 +149,17 @@ function normalizeVolumes(values) {
     throw invalid("Hay dos tomos con el mismo nombre.");
   }
   return volumes;
+}
+
+const COVER_FILE = /^[0-9a-f]{64}\.(jpg|png|webp)$/;
+
+function normalizeCover(value) {
+  if (value == null) return null;
+  const file = String(value.file ?? "");
+  if (!COVER_FILE.test(file)) {
+    throw invalid("La tapa debe ser una imagen guardada en la biblioteca.");
+  }
+  return { file, origin: cleanLine(value.origin) || null };
 }
 
 const cleanLine = (value) => String(value ?? "").replace(/\s+/g, " ").trim();

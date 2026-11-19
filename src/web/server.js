@@ -20,6 +20,7 @@ import { downloadArticle } from "../pipeline.js";
 import { createLibraryService } from "../library/application/library-service.js";
 import { createSourceSyncService } from "../library/application/source-sync-service.js";
 import { createFileStore } from "../library/adapters/fs-file-store.js";
+import { createCoverStore } from "../library/adapters/fs-cover-store.js";
 import { createFolderScanner } from "../library/adapters/fs-folder-scanner.js";
 import { detectPdfTextExtractor } from "../library/adapters/pdftotext-extractor.js";
 import { createSqliteRepository } from "../library/adapters/sqlite-repository.js";
@@ -38,10 +39,12 @@ const MAX_JOBS_KEPT = 50;
 
 // Composicion de la biblioteca: dominio + casos de uso con sus adaptadores.
 const LIBRARY_STORE = path.join(path.dirname(LIBRARY_DB), "store");
+const coverStore = createCoverStore(path.join(path.dirname(LIBRARY_DB), "covers"));
 const repository = createSqliteRepository(LIBRARY_DB);
 const library = createLibraryService({
   repository,
   sources: [createXArticleSource({ loadArticles: () => loadArticleDocs(LIBRARY_ROOT) })],
+  covers: coverStore,
   newId: randomUUID,
   now: () => new Date().toISOString(),
 });
@@ -55,7 +58,7 @@ const sourceSync = createSourceSyncService({
   now: () => new Date().toISOString(),
   onChange: () => scheduleSourceBroadcast(),
 });
-const routeCatalog = createCatalogRoutes({ service: library, sources: sourceSync, readJsonBody });
+const routeCatalog = createCatalogRoutes({ service: library, sources: sourceSync, covers: coverStore, readJsonBody, readImageBody });
 
 // El progreso de una sincronizacion cambia por cada archivo: se agrupa para
 // no mandar cientos de eventos por segundo.
@@ -141,6 +144,11 @@ async function route(request, response) {
       throw httpError(404, "El archivo de este item no está disponible. Si está en un disco externo, conectalo.");
     }
     return streamPdf(response, located, url.searchParams.has("download"));
+  }
+
+  // Las tapas se nombran por su huella: el contenido de una URL nunca cambia.
+  if (request.method === "GET" && parts[1] === "covers" && parts.length === 3 && /^[0-9a-f]{64}\.(jpg|png|webp)$/.test(parts[2])) {
+    return sendFile(response, coverStore.pathOf(parts[2]), false, "public, max-age=31536000, immutable");
   }
 
   const catalogResult = await routeCatalog({ method: request.method, parts, request });
@@ -511,7 +519,7 @@ function resolveInside(root, ...segments) {
   return resolved;
 }
 
-async function sendFile(response, filePath, asAttachment = false) {
+async function sendFile(response, filePath, asAttachment = false, cacheControl = "no-store") {
   let content;
   try {
     content = await fs.readFile(filePath);
@@ -521,7 +529,7 @@ async function sendFile(response, filePath, asAttachment = false) {
 
   const headers = {
     "content-type": MIME_TYPES[path.extname(filePath).toLowerCase()] ?? "application/octet-stream",
-    "cache-control": "no-store",
+    "cache-control": cacheControl,
   };
   if (asAttachment) {
     headers["content-disposition"] = `attachment; filename="${path.basename(filePath)}"`;
@@ -568,6 +576,20 @@ async function readJsonBody(request) {
   } catch {
     throw httpError(400, "JSON invalido");
   }
+}
+
+async function readImageBody(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > 15_000_000) {
+      throw httpError(413, "La imagen es demasiado grande (máximo 15 MB).");
+    }
+    chunks.push(chunk);
+  }
+  if (size === 0) throw httpError(400, "Falta la imagen.");
+  return { bytes: Buffer.concat(chunks), contentType: request.headers["content-type"] };
 }
 
 function httpError(status, message) {

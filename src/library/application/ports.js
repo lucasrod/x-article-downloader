@@ -55,6 +55,14 @@
  */
 
 /**
+ * Almacen de tapas. Guarda la imagen por huella y devuelve "<sha256>.<ext>".
+ *
+ * @typedef {object} CoverStore
+ * @property {(bytes: Uint8Array, extension: "jpg"|"png"|"webp") => Promise<string>} put
+ * @property {(file: string) => string} pathOf
+ */
+
+/**
  * Extraccion de texto. Opcional: sin ella los archivos no son buscables por contenido.
  *
  * @typedef {object} TextExtractor

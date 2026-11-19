@@ -23,7 +23,7 @@ import {
 // Casos de uso de la biblioteca. Orquesta dominio y puertos (ver ports.js);
 // no conoce HTTP, SQLite ni el filesystem.
 
-export function createLibraryService({ repository, sources = [], newId, now }) {
+export function createLibraryService({ repository, sources = [], covers = null, newId, now }) {
   async function requireItem(id) {
     const item = await repository.getItem(id);
     if (!item) throw notFound("Ese item no existe.");
@@ -54,6 +54,22 @@ export function createLibraryService({ repository, sources = [], newId, now }) {
 
     async reviseItem(id, changes) {
       const item = reviseItem(await requireItem(id), changes, now());
+      await repository.saveItems([item]);
+      return item;
+    },
+
+    // La tapa es curada: una foto, la pagina 1 de un PDF, la imagen de la editorial.
+    async setItemCover(id, { bytes, extension, origin = null }) {
+      const current = await requireItem(id);
+      if (!covers) throw invalid("Esta biblioteca no tiene donde guardar tapas.");
+      const file = await covers.put(bytes, extension);
+      const item = reviseItem(current, { cover: { file, origin } }, now());
+      await repository.saveItems([item]);
+      return item;
+    },
+
+    async removeItemCover(id) {
+      const item = reviseItem(await requireItem(id), { cover: null }, now());
       await repository.saveItems([item]);
       return item;
     },
