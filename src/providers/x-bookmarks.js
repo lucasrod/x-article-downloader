@@ -47,10 +47,17 @@ export async function scanBookmarkArticles({
 
   try {
     await page.goto(BOOKMARKS_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
-    if (/\/login|\/i\/flow/.test(page.url())) {
+    // Sin sesion X redirige al login (antes /login o /i/flow, ahora /i/jf/onboarding),
+    // a veces recien despues de cargar: se espera lo que llegue primero.
+    const LOGIN_URL = /\/login|\/i\/flow|\/i\/jf\/onboarding|[?&]mode=login/;
+    await Promise.race([
+      page.waitForSelector('[data-testid="tweet"]', { timeout: 30000 }),
+      page.waitForURL(LOGIN_URL, { timeout: 30000 }),
+    ]).catch(() => {});
+    if (LOGIN_URL.test(page.url())) {
       throw new Error("El navegador conectado no tiene sesion de X. Inicia sesion en esa ventana y volve a sincronizar.");
     }
-    await page.waitForSelector('[data-testid="tweet"]', { timeout: 30000 });
+    await page.waitForSelector('[data-testid="tweet"]', { timeout: 5000 });
 
     let idle = 0;
     while (idle < MAX_IDLE_ROUNDS && !reachedSeen && !shouldStop() && (limit == null || found.length < limit)) {

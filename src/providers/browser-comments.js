@@ -17,6 +17,7 @@ export async function collectBrowserCommentSignals(document, options) {
 
   let browser = null;
   let context = null;
+  let page = null;
   const connectedOverCdp = Boolean(options.cdpEndpoint);
 
   try {
@@ -30,7 +31,7 @@ export async function collectBrowserCommentSignals(document, options) {
           storageState: options.storageState || undefined,
         });
 
-    const page = await context.newPage();
+    page = await context.newPage();
     await page.setViewportSize({ width: 1440, height: 2400 });
     await page.goto(document.source.status_url, {
       waitUntil: "domcontentloaded",
@@ -124,6 +125,8 @@ export async function collectBrowserCommentSignals(document, options) {
     trace.finished_at = new Date().toISOString();
     return { trace, patch: null, evidenceItems: [] };
   } finally {
+    // Con CDP, browser.close() solo desconecta: la pestaña quedaria abierta en el navegador.
+    await page?.close().catch(() => {});
     if (browser) {
       await browser.close();
     }

@@ -88,6 +88,8 @@ export async function extractArticle(url, timeout, options = {}) {
     }
     throw new Error("No pude encontrar un Article en esa URL. Usa la URL publica del status que contiene el articulo.");
   } finally {
+    // Con CDP, browser.close() solo desconecta: la pestaña quedaria abierta en el navegador.
+    await page.close().catch(() => {});
     await browser.close();
   }
 }
