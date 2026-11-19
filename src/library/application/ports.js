@@ -63,6 +63,14 @@
  */
 
 /**
+ * Donde se guarda el snapshot versionable del catalogo (ver catalog-snapshot.js).
+ *
+ * @typedef {object} CatalogStore
+ * @property {(snapshot: object) => Promise<{ changed: number }>} write  solo reescribe lo que cambio
+ * @property {() => Promise<object>} read
+ */
+
+/**
  * Extraccion de texto. Opcional: sin ella los archivos no son buscables por contenido.
  *
  * @typedef {object} TextExtractor

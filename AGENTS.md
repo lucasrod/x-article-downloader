@@ -35,6 +35,7 @@ Mantener una pipeline X-first:
 - Una Relacion es una arista con tipo entre dos items (`domain/relation.js`): requiere, continua, es parte de, cita, se relaciona con. Los tipos que expresan orden no admiten ciclos; "se relaciona con" no tiene direccion. El grafo son los items con alguna relacion.
 - Unir dos items conserva uno y le pasa archivos, etiquetas, carpetas, listas y relaciones del otro. Un item con fuente no puede ser el absorbido.
 - El catalogo se guarda en `./library/library.sqlite` (o `LIBRARY_DB`). `article.json` sigue siendo la verdad del contenido de cada articulo.
+- `./library/` es un repo git propio y privado, separado de este repo publico. Versiona `catalog/` (snapshot del catalogo: un JSON por item, mas carpetas, listas, relaciones, carpetas de origen y archivos) y `covers/`. La base, los PDFs (`store/`, `inbox/`) y los respaldos quedan fuera. El servidor reexporta el snapshot despues de cada escritura (`application/catalog-snapshot.js`, `adapters/fs-catalog-store.js`); `npm run library:export` y `npm run library:import` lo hacen a mano, y `import` solo carga sobre un catalogo vacio.
 - No mezclar awareness social con el renderer Markdown.
 - Los comentarios por defecto se recolectan best-effort desde browser, no desde la API paga de X.
 

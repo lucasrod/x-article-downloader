@@ -7,6 +7,8 @@ import { DomainError } from "../src/library/domain/errors.js";
 import { createItem, reviseItem } from "../src/library/domain/item.js";
 import { addEntry, createReadingList, moveEntry } from "../src/library/domain/reading-list.js";
 import { organization, searchCatalog } from "../src/web/catalog-search.js";
+import { notifyingChanges, restoreSnapshot, takeSnapshot } from "../src/library/application/catalog-snapshot.js";
+import { createCatalogStore } from "../src/library/adapters/fs-catalog-store.js";
 
 const rejectsWith = (code) => (error) => error instanceof DomainError && error.code === code;
 
@@ -424,4 +426,51 @@ test("busqueda: documentos con idioma cargado, fecha parcial y largo en paginas"
   assert.deepEqual(longest.results.slice(0, 2).map((result) => result.title), ["Cálculo", "Apuntes"]);
   const short = await searchCatalog({ root: "/nonexistent", service, params: new URLSearchParams({ len: "short" }) });
   assert.deepEqual(short.results.map((result) => result.title), ["Apuntes"]);
+});
+
+test("snapshot del catalogo: ida y vuelta completa, sin datos que se regeneran", async () => {
+  const repository = createSqliteRepository(":memory:");
+  let counter = 0;
+  const service = createLibraryService({ repository, newId: () => `snap-${++counter}`, now: () => `2026-01-01T00:00:${String(counter).padStart(2, "0")}.000Z` });
+  const book = await service.registerItem({ kind: "book", title: "Cálculo", published: "2016", language: "es", tags: ["mate"], physical: { owned: true, volumes: [{ name: "Tomo I" }] } });
+  const notes = await service.registerItem({ kind: "notes", title: "Apuntes" });
+  const parent = await service.createFolder({ name: "Facultad" });
+  const child = await service.createFolder({ name: "Primer año", parentId: parent.id });
+  await service.placeInFolder(child.id, { itemId: book.id });
+  const list = await service.createReadingList({ name: "Verano" });
+  await service.addToReadingList(list.id, notes.id, "antes del parcial");
+  await service.relateItems({ fromId: notes.id, toId: book.id, type: "requires" });
+  await repository.saveSource({ id: "src-1", path: "/tmp/pdfs", label: "PDFs", policy: "reference", foldersImportedAt: "t", lastSyncedAt: "cambia siempre", createdAt: "t" });
+  await repository.saveFiles([{ sha256: "a".repeat(64), itemId: book.id, size: 10, name: "c.pdf", archived: false, pages: 3, textChars: 120, addedAt: "t" }]);
+
+  const snapshot = await takeSnapshot(repository);
+  assert.equal(snapshot.sources[0].lastSyncedAt, undefined);
+  assert.equal(snapshot.files[0].textChars, undefined);
+
+  // Ida y vuelta por disco: la base nueva queda igual.
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "catalog-"));
+  const store = createCatalogStore(dir);
+  assert.ok((await store.write(snapshot)).changed > 0);
+  assert.equal((await store.write(snapshot)).changed, 0, "sin cambios no reescribe nada");
+
+  const restored = createSqliteRepository(":memory:");
+  await restoreSnapshot(restored, await store.read());
+  assert.deepEqual(await takeSnapshot(restored), snapshot);
+  assert.equal((await restored.listFiles())[0].textChars, null, "el texto se vuelve a extraer al sincronizar");
+  await assert.rejects(restoreSnapshot(restored, snapshot), rejectsWith("invalid"), "no pisa un catálogo con items");
+
+  // Borrar un item borra su archivo.
+  await service.removeItem(notes.id);
+  assert.ok((await store.write(await takeSnapshot(repository))).changed > 0);
+  assert.deepEqual((await fs.readdir(path.join(dir, "items"))).sort(), [`${book.id}.json`]);
+  await fs.rm(dir, { recursive: true, force: true });
+});
+
+test("aviso de cambios: solo las escrituras del repositorio avisan", async () => {
+  const changes = [];
+  const repository = notifyingChanges(createSqliteRepository(":memory:"), (name) => changes.push(name));
+  const service = createLibraryService({ repository, newId: () => "n-1", now: () => "t" });
+  await service.registerItem({ kind: "book", title: "Uno" });
+  await repository.listItems();
+  assert.deepEqual(changes, ["saveItems"]);
 });

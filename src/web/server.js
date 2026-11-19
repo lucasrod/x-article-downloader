@@ -21,6 +21,8 @@ import { createLibraryService } from "../library/application/library-service.js"
 import { createSourceSyncService } from "../library/application/source-sync-service.js";
 import { createFileStore } from "../library/adapters/fs-file-store.js";
 import { createCoverStore } from "../library/adapters/fs-cover-store.js";
+import { createCatalogStore } from "../library/adapters/fs-catalog-store.js";
+import { notifyingChanges, takeSnapshot } from "../library/application/catalog-snapshot.js";
 import { createFolderScanner } from "../library/adapters/fs-folder-scanner.js";
 import { detectPdfTextExtractor } from "../library/adapters/pdftotext-extractor.js";
 import { createSqliteRepository } from "../library/adapters/sqlite-repository.js";
@@ -40,7 +42,26 @@ const MAX_JOBS_KEPT = 50;
 // Composicion de la biblioteca: dominio + casos de uso con sus adaptadores.
 const LIBRARY_STORE = path.join(path.dirname(LIBRARY_DB), "store");
 const coverStore = createCoverStore(path.join(path.dirname(LIBRARY_DB), "covers"));
-const repository = createSqliteRepository(LIBRARY_DB);
+const catalogStore = createCatalogStore(path.join(path.dirname(LIBRARY_DB), "catalog"));
+const sqliteRepository = createSqliteRepository(LIBRARY_DB);
+// Cada escritura del catalogo reexporta el snapshot versionable (agrupado).
+const repository = notifyingChanges(sqliteRepository, () => scheduleCatalogExport());
+let catalogExportTimer = null;
+let catalogExport = Promise.resolve();
+function scheduleCatalogExport() {
+  clearTimeout(catalogExportTimer);
+  catalogExportTimer = setTimeout(() => {
+    catalogExport = catalogExport.then(exportCatalog);
+  }, 1500);
+}
+async function exportCatalog() {
+  try {
+    const { changed } = await catalogStore.write(await takeSnapshot(sqliteRepository));
+    if (changed > 0) console.log(`Catalogo exportado: ${changed} archivo(s) cambiaron.`);
+  } catch (error) {
+    console.error(`No se pudo exportar el catalogo: ${error.message}`);
+  }
+}
 const library = createLibraryService({
   repository,
   sources: [createXArticleSource({ loadArticles: () => loadArticleDocs(LIBRARY_ROOT) })],
@@ -111,7 +132,10 @@ server.listen(PORT, HOST, () => {
   console.log(`Articulos: ${LIBRARY_ROOT}`);
   console.log(`Catalogo: ${LIBRARY_DB}`);
   console.log(`Almacen: ${LIBRARY_STORE}`);
+  console.log(`Snapshot versionable: ${path.join(path.dirname(LIBRARY_DB), "catalog")}`);
   scheduleSourceBroadcast();
+  // Al arrancar se exporta una vez: recoge lo que se haya escrito con el servidor apagado.
+  scheduleCatalogExport();
   if (!textExtractor) console.log("pdftotext no esta instalado: los PDFs no van a ser buscables por contenido.");
 });
 
