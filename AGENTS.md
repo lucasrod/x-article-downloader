@@ -24,6 +24,7 @@ Mantener una pipeline X-first:
   - `adapters/`: SQLite (`sqlite-repository.js`), articulos de X (`x-article-source.js`), lectura de carpetas (`fs-folder-scanner.js`), almacen por huella (`fs-file-store.js`) y texto de PDFs (`pdftotext-extractor.js`).
   - La direccion de dependencias es adaptadores → aplicacion → dominio. `src/web/catalog-routes.js` es el adaptador HTTP.
 - Un Item es unico; carpetas y listas de lectura solo lo referencian por id. Nunca duplicar un item para ubicarlo en dos lugares.
+- Una obra anillada o encuadernada en varios tomos es un solo item: los tomos son una lista dentro de su copia fisica (`physical.volumes`), cada uno con ubicacion opcional.
 - En un item con fuente, lo capturado (titulo, autores) lo dicta la fuente; lo curado (etiquetas, copia fisica, notas, carpetas, listas) es del usuario y sincronizar no lo pisa.
 - La identidad de un archivo es su SHA-256, no su ruta. Mover o renombrar un PDF conserva su item; editarlo en el lugar agrega una version al mismo item. La decision vive en `domain/folder-sync.js` (funcion pura).
 - Una carpeta de origen tiene politica `archive` (copia en `./library/store/<aa>/<sha256>.pdf`) o `reference` (solo indice). Sus subcarpetas se reflejan como carpetas de biblioteca solo en la primera sincronizacion.

@@ -257,7 +257,7 @@ function publicFields(doc) {
     kind: doc.kind,
     year: doc.year ?? null,
     tags: doc.tags ?? [],
-    physical: doc.physical ?? { owned: false, location: null },
+    physical: doc.physical ?? { owned: false, location: null, volumes: [] },
     has_source: doc.has_source ?? true,
     folder_ids: doc.folder_ids ?? [],
     list_ids: doc.list_ids ?? [],

@@ -102,6 +102,9 @@ const MIGRATIONS = [
     UNIQUE (from_id, to_id, type)
   );
   `,
+  `
+  ALTER TABLE items ADD COLUMN physical_volumes TEXT NOT NULL DEFAULT '[]';
+  `,
 ];
 
 export function createSqliteRepository(file) {
@@ -134,7 +137,7 @@ export function createSqliteRepository(file) {
     year: row.year,
     notes: row.notes,
     tags,
-    physical: { owned: row.physical_owned === 1, location: row.physical_location },
+    physical: { owned: row.physical_owned === 1, location: row.physical_location, volumes: JSON.parse(row.physical_volumes) },
     source: row.source_key ? { key: row.source_key, ref: JSON.parse(row.source_ref ?? "{}") } : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -170,11 +173,12 @@ export function createSqliteRepository(file) {
 
     async saveItems(items) {
       const upsert = db.prepare(`
-        INSERT INTO items (id, kind, title, authors, year, notes, physical_owned, physical_location, source_key, source_ref, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO items (id, kind, title, authors, year, notes, physical_owned, physical_location, physical_volumes, source_key, source_ref, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (id) DO UPDATE SET
           kind = excluded.kind, title = excluded.title, authors = excluded.authors, year = excluded.year,
           notes = excluded.notes, physical_owned = excluded.physical_owned, physical_location = excluded.physical_location,
+          physical_volumes = excluded.physical_volumes,
           source_key = excluded.source_key, source_ref = excluded.source_ref, updated_at = excluded.updated_at`);
       const clearTags = db.prepare("DELETE FROM item_tags WHERE item_id = ?");
       const addTag = db.prepare("INSERT INTO item_tags (item_id, tag) VALUES (?, ?)");
@@ -183,7 +187,7 @@ export function createSqliteRepository(file) {
         for (const item of items) {
           upsert.run(
             item.id, item.kind, item.title, JSON.stringify(item.authors), item.year, item.notes,
-            item.physical.owned ? 1 : 0, item.physical.location,
+            item.physical.owned ? 1 : 0, item.physical.location, JSON.stringify(item.physical.volumes ?? []),
             item.source?.key ?? null, item.source ? JSON.stringify(item.source.ref) : null,
             item.createdAt, item.updatedAt,
           );

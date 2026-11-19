@@ -304,6 +304,8 @@
   .organizer { display: flex; flex-direction: column; gap: 14px; }
   .organizer h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .organizer .check { margin: 0; }
+  .organizer .volumes { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  .organizer .volume { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto; gap: 6px; align-items: center; }
   .organizer .opt-list { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
   .tag-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .tag-edit input { flex: 1 1 130px; width: auto; padding: 4px 8px; font-size: 13px; }
@@ -831,7 +833,7 @@ function renderLibrary(params) {
         ? `<span class="tag">PDF</span>${article.file.pages ? `<span>${article.file.pages} pág.</span>` : ""}`
         : (article.reading_minutes ? `<span>${article.reading_minutes} min</span>` : ""),
       article.file && !article.file.available ? '<span title="El archivo no está en la carpeta ni archivado">Archivo no disponible</span>' : "",
-      article.physical.owned ? `<span class="physical" title="${escapeHtml(article.physical.location ?? "En tu biblioteca física")}">En físico</span>` : "",
+      article.physical.owned ? `<span class="physical" title="${escapeHtml(physicalTitle(article.physical))}">En físico${article.physical.volumes?.length > 1 ? ` · ${article.physical.volumes.length} tomos` : ""}</span>` : "",
       article.lang !== "other" ? `<span class="tag">${article.lang}</span>` : "",
       article.image_count ? `<span>${article.image_count} img</span>` : "",
       article.embed_count ? `<span>${article.embed_count} embebidos</span>` : "",
@@ -1194,7 +1196,16 @@ function organizerHtml(item) {
     </div>
     <div>
       <label class="check"><input type="checkbox" data-physical ${item.physical.owned ? "checked" : ""}> <span>Lo tengo en mi biblioteca física</span></label>
-      ${item.physical.owned ? `<input type="text" data-physical-location value="${escapeHtml(item.physical.location ?? "")}" placeholder="Ubicación (opcional): estante, prestado a…" aria-label="Ubicación física" style="margin-top:8px">` : ""}
+      ${item.physical.owned ? `<input type="text" data-physical-location value="${escapeHtml(item.physical.location ?? "")}" placeholder="Ubicación (opcional): estante, prestado a…" aria-label="Ubicación física" style="margin-top:8px">
+      <div class="volumes">
+        <h4>Tomos</h4>
+        ${(item.physical.volumes ?? []).map((volume, index) => `<div class="volume" data-volume>
+          <input type="text" data-volume-name value="${escapeHtml(volume.name)}" aria-label="Nombre del tomo ${index + 1}">
+          <input type="text" data-volume-location value="${escapeHtml(volume.location ?? "")}" placeholder="Ubicación" aria-label="Ubicación del tomo ${index + 1}">
+          <button class="chip" type="button" data-remove-volume aria-label="Quitar tomo ${escapeHtml(volume.name)}">×</button>
+        </div>`).join("")}
+        <input type="text" data-add-volume placeholder="Agregar tomo y Enter: Parte 1, capítulos 5 a 8…" aria-label="Agregar tomo" autocomplete="off">
+      </div>` : ""}
     </div>
     <div>
       <h4>Carpetas</h4>
@@ -1232,9 +1243,24 @@ async function organizerChange(container, change) {
     toast(error.message);
   }
   const [item] = await Promise.all([api(`/api/items/${id}`), refreshOrganization()]);
-  const refocus = change.addTag || change.removeTag;
+  const refocus = change.addTag || change.removeTag ? "[data-add-tag]" : change.addedVolume ? "[data-add-volume]" : null;
   container.outerHTML = organizerHtml(item);
-  if (refocus) document.querySelector(`[data-org-item="${CSS.escape(id)}"] [data-add-tag]`)?.focus();
+  if (refocus) document.querySelector(`[data-org-item="${CSS.escape(id)}"] ${refocus}`)?.focus();
+}
+
+// Los tomos se guardan todos juntos, tal como quedaron en pantalla.
+function volumesChange(organizer, { skip = null } = {}) {
+  const volumes = [...organizer.querySelectorAll("[data-volume]")]
+    .filter((row) => row !== skip)
+    .map((row) => ({ name: row.querySelector("[data-volume-name]").value, location: row.querySelector("[data-volume-location]").value }));
+  const added = organizer.querySelector("[data-add-volume]")?.value.trim();
+  if (added) volumes.push({ name: added, location: "" });
+  return organizerChange(organizer, { physical: { volumes }, addedVolume: Boolean(added) });
+}
+
+function physicalTitle(physical) {
+  const volumes = (physical.volumes ?? []).map((volume) => volume.location ? `${volume.name} (${volume.location})` : volume.name);
+  return [physical.location, volumes.join(", ")].filter(Boolean).join(" · ") || "En tu biblioteca física";
 }
 
 function commitTagInput(input) {
@@ -1538,6 +1564,8 @@ document.addEventListener("click", (event) => {
   if (organize) return openOrganizer(organize.closest("[data-item]").dataset.item).catch((error) => toast(error.message));
   const listButton = target.closest("[data-list-move], [data-list-remove], [data-list-note]");
   if (listButton) return listRowAction(listButton.closest("[data-item]"), listButton);
+  const removeVolume = target.closest("[data-remove-volume]");
+  if (removeVolume) return volumesChange(removeVolume.closest("[data-org-item]"), { skip: removeVolume.closest("[data-volume]") });
   const removeTag = target.closest("[data-remove-tag]");
   if (removeTag) return organizerChange(removeTag.closest("[data-org-item]"), { removeTag: removeTag.dataset.removeTag });
 
@@ -1564,6 +1592,7 @@ document.addEventListener("change", (event) => {
     if (target.matches("[data-add-tag]")) return commitTagInput(target);
     if (target.matches("[data-physical]")) return organizerChange(organizer, { physical: { owned: target.checked } });
     if (target.matches("[data-physical-location]")) return organizerChange(organizer, { physical: { owned: true, location: target.value } });
+    if (target.matches("[data-volume-name], [data-volume-location], [data-add-volume]")) return volumesChange(organizer);
     if (target.matches("[data-in-folder]")) return organizerChange(organizer, { folder: target.dataset.inFolder, checked: target.checked });
     if (target.matches("[data-in-list]")) return organizerChange(organizer, { list: target.dataset.inList, checked: target.checked });
   }

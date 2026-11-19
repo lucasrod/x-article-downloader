@@ -28,8 +28,15 @@ test("item: normaliza etiquetas y solo guarda ubicacion si hay copia fisica", ()
   const item = createItem({ id: "a", kind: "book", title: "  Cálculo   I ", tags: ["#Análisis", "análisis ", "Mate"], physical: { owned: false, location: "estante 2" }, now: "t" });
   assert.equal(item.title, "Cálculo I");
   assert.deepEqual(item.tags, ["análisis", "mate"]);
-  assert.deepEqual(item.physical, { owned: false, location: null });
-  assert.deepEqual(reviseItem(item, { physical: { owned: true, location: " estante 2 " } }, "t2").physical, { owned: true, location: "estante 2" });
+  assert.deepEqual(item.physical, { owned: false, location: null, volumes: [] });
+  assert.deepEqual(reviseItem(item, { physical: { owned: true, location: " estante 2 " } }, "t2").physical, { owned: true, location: "estante 2", volumes: [] });
+
+  // Una obra en varios tomos sigue siendo un item; cada tomo puede tener su ubicacion.
+  const bound = reviseItem(item, { physical: { owned: true, volumes: [{ name: " Parte 1 ", location: "estante 2" }, { name: "Parte 2" }, { name: "  " }] } }, "t2");
+  assert.deepEqual(bound.physical.volumes, [{ name: "Parte 1", location: "estante 2" }, { name: "Parte 2", location: null }]);
+  assert.deepEqual(reviseItem(bound, { physical: { location: "caja" } }, "t3").physical.volumes.length, 2, "cambiar la ubicación conserva los tomos");
+  assert.deepEqual(reviseItem(bound, { physical: { owned: false } }, "t3").physical.volumes, [], "sin copia física no hay tomos");
+  assert.throws(() => reviseItem(item, { physical: { owned: true, volumes: [{ name: "Parte 1" }, { name: "parte 1" }] } }, "t2"), { code: "invalid" });
   assert.throws(() => createItem({ id: "b", kind: "revista", title: "x", now: "t" }), rejectsWith("invalid"));
   assert.throws(() => createItem({ id: "b", kind: "book", title: "  ", now: "t" }), rejectsWith("invalid"));
 });

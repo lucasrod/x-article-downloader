@@ -48,7 +48,8 @@ export function reviseItem(item, changes, now) {
   if ("year" in changes) next.year = normalizeYear(changes.year);
   if ("notes" in changes) next.notes = String(changes.notes ?? "").trim();
   if ("tags" in changes) next.tags = normalizeTags(changes.tags);
-  if ("physical" in changes) next.physical = normalizePhysical(changes.physical);
+  // Un cambio parcial (solo la ubicacion, solo los tomos) conserva el resto.
+  if ("physical" in changes) next.physical = normalizePhysical({ ...item.physical, ...changes.physical });
   return next;
 }
 
@@ -121,9 +122,27 @@ function normalizeYear(value) {
 }
 
 // Copia fisica: "lo tengo impreso o comprado", con ubicacion opcional.
-// La ubicacion solo tiene sentido si la copia existe.
+// Una obra puede estar repartida en varios tomos (un libro anillado en partes):
+// siguen siendo un solo item, y cada tomo puede tener su propia ubicacion.
+// Ubicacion y tomos solo tienen sentido si la copia existe.
 function normalizePhysical(value) {
   const owned = Boolean(value?.owned);
-  const location = owned ? String(value?.location ?? "").replace(/\s+/g, " ").trim() : "";
-  return { owned, location: location || null };
+  const location = owned ? cleanLine(value?.location) : "";
+  return { owned, location: location || null, volumes: owned ? normalizeVolumes(value?.volumes ?? []) : [] };
 }
+
+function normalizeVolumes(values) {
+  if (!Array.isArray(values)) {
+    throw invalid("Los tomos deben ser una lista.");
+  }
+  const volumes = values
+    .map((volume) => ({ name: cleanLine(volume?.name), location: cleanLine(volume?.location) || null }))
+    .filter((volume) => volume.name);
+  const names = volumes.map((volume) => volume.name.toLowerCase());
+  if (new Set(names).size !== names.length) {
+    throw invalid("Hay dos tomos con el mismo nombre.");
+  }
+  return volumes;
+}
+
+const cleanLine = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
