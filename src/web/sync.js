@@ -58,12 +58,13 @@ export function createBookmarkSync({ root, cdpEndpoint, enqueue, cancelJobs, onC
   async function scan() {
     await cacheLoaded;
     const keys = await getLibraryKeys(root);
-    const incremental = !state.settings.full && cache.seen.size > 0;
+    const incremental = !state.settings.full;
     state.scan.incremental = incremental;
     const result = await scanBookmarkArticles({
       cdpEndpoint,
       limit: state.settings.limit,
-      isSeen: incremental ? (statusId) => cache.seen.has(statusId) : null,
+      isSeen: incremental && cache.seen.size > 0 ? (statusId) => cache.seen.has(statusId) : null,
+      stopAtKnown: incremental,
       shouldStop: () => stopRequested,
       isKnown: ({ statusId, titleKey }) => keys.statusIds.has(statusId) || (Boolean(titleKey) && keys.titles.has(titleKey)),
       onProgress: (progress) => {

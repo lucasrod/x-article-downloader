@@ -8,14 +8,18 @@ const MAX_IDLE_ROUNDS = 5;
 // Los bookmarks nuevos aparecen arriba: al cruzar varios ya revisados seguidos,
 // lo que sigue tambien se reviso en una sincronizacion anterior.
 const SEEN_STOP_RUN = 3;
+// Lo mismo con Articles que ya estan en la biblioteca, aunque no haya cache:
+// los posts comunes entre medio no cortan la racha.
+const KNOWN_STOP_RUN = 3;
 
 // Recorre los bookmarks de la sesion abierta en el navegador (via CDP), del mas
 // reciente al mas viejo, y reporta cada Article que todavia no esta en la biblioteca.
-// Con isSeen se detiene al llegar a los bookmarks revisados antes.
+// Con isSeen o stopAtKnown se detiene al llegar a lo que ya se proceso antes.
 export async function scanBookmarkArticles({
   cdpEndpoint,
   isKnown,
   isSeen = null,
+  stopAtKnown = false,
   limit = null,
   shouldStop = () => false,
   onProgress = () => {},
@@ -35,6 +39,7 @@ export async function scanBookmarkArticles({
   const found = [];
   const ids = [];
   let seenRun = 0;
+  let knownRun = 0;
   let reachedSeen = false;
   let scanned = 0;
   let known = 0;
@@ -73,7 +78,15 @@ export async function scanBookmarkArticles({
         const titleKey = normalize(tweet.title ?? "");
         if (isKnown({ statusId, titleKey })) {
           known += 1;
-        } else if (titleKey && titles.has(titleKey)) {
+          knownRun += 1;
+          if (stopAtKnown && knownRun >= KNOWN_STOP_RUN) {
+            reachedSeen = true;
+            break;
+          }
+          continue;
+        }
+        knownRun = 0;
+        if (titleKey && titles.has(titleKey)) {
           duplicates += 1;
         } else if (limit == null || found.length < limit) {
           titles.add(titleKey);

@@ -464,7 +464,7 @@
         <div class="sync-controls">
           <label class="check"><input type="checkbox" id="sync-auto" checked> Descargar automáticamente</label>
           <label class="check"><input type="checkbox" id="sync-limit-on" checked> Solo los <input type="number" id="sync-limit" value="20" min="1" max="1000" aria-label="Cantidad de artículos"> más recientes</label>
-          <label class="check" id="sync-full-label" hidden><input type="checkbox" id="sync-full"> Revisar todo el historial</label>
+          <label class="check" id="sync-full-label"><input type="checkbox" id="sync-full"> Revisar todo el historial</label>
           <div class="sync-actions">
             <button class="btn" type="button" id="sync-stop" hidden>Detener</button>
             <button class="btn dark" type="button" id="sync-start">Sincronizar bookmarks</button>
@@ -2039,10 +2039,9 @@ function renderSync(sync) {
   $("sync-start").textContent = sync.status === "idle" ? "Sincronizar bookmarks" : "Sincronizar de nuevo";
   $("sync-stop").hidden = !(busy || sync.status === "review");
   const cached = sync.cache?.size ?? 0;
-  $("sync-full-label").hidden = cached === 0;
   $("sync-cache").textContent = cached
     ? `Ya revisé ${cached.toLocaleString("es")} bookmarks (${formatDate(sync.cache.updated_at)}): la próxima sincronización lee solo los nuevos.`
-    : "La primera sincronización recorre todos tus bookmarks; las siguientes leen solo los nuevos.";
+    : "Lee tus bookmarks hasta llegar a los artículos que ya tenés en la biblioteca.";
 
   const box = $("sync-status");
   if (!sync.cdp_configured) {
