@@ -17,10 +17,11 @@
     "web:avatars": "node ./src/web/backfill-avatars.js",
     "test:sample": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011'",
     "test:sample:json": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format md+json",
-    "test:sample:bundle": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format bundle"
+    "test:sample:bundle": "node ./src/cli.js 'https://x.com/shannholmberg/status/2055335043904492011' --format bundle",
+    "test": "node --test"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

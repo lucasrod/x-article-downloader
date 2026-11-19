@@ -278,6 +278,50 @@
   .failures { font-size: 12px; color: var(--warn); margin: 0; padding-left: 16px; }
   .summary { font-size: 13px; margin: 0 0 10px; color: var(--muted); }
 
+  /* ---------- organizacion: carpetas, listas, etiquetas ---------- */
+  .org { display: flex; flex-direction: column; gap: 1px; margin-bottom: 18px; }
+  .org-row {
+    display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; cursor: pointer;
+    padding: 5px 8px; border-radius: 6px; font-size: 14px; text-align: left;
+  }
+  .org-row:hover { background: var(--surface-2); }
+  .org-row.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .org-row .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .org-row .n { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; font-weight: 400; }
+  .org-head { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 2px; padding-left: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .org-head .icon-btn { font-size: 18px; padding: 0 8px; }
+  .org .empty { padding: 2px 8px; font-size: 13px; }
+  .head-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lib-sub { color: var(--muted); font-size: 14px; margin: -6px 0 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .lib-sub:empty { display: none; }
+  .row-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 12px; margin-top: -6px; }
+  .row-foot .spacer { flex: 1; }
+  .row-foot .pos { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; min-width: 22px; }
+  .row-foot .note { color: var(--muted); font-size: 13px; font-style: italic; }
+  .tagchip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 1px 9px; font-size: 12px; cursor: pointer; color: var(--muted); }
+  .tagchip:hover { border-color: var(--accent); color: var(--accent); }
+  .meta .physical { color: var(--ok); font-weight: 500; }
+  .organizer { display: flex; flex-direction: column; gap: 14px; }
+  .organizer h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .organizer .check { margin: 0; }
+  .organizer .opt-list { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
+  .tag-edit { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tag-edit input { flex: 1 1 130px; width: auto; padding: 4px 8px; font-size: 13px; }
+  dialog {
+    border: 1px solid var(--border); border-radius: 14px; padding: 20px; background: var(--surface); color: var(--text);
+    width: min(440px, calc(100vw - 32px)); box-shadow: var(--shadow-lg);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .35); }
+  .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .dialog-head h2 { margin: 0; font: 600 18px/1.3 var(--serif); }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .item-form { display: flex; flex-direction: column; gap: 10px; }
+  .item-form textarea { font: 14px/1.45 var(--sans); min-height: 70px; }
+  .item-form .field-grid { margin-top: 0; }
+  .doc .notes { white-space: pre-line; }
+  .doc .hint { font: 14px var(--sans); color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; margin-top: 24px; }
+  .btn.danger { color: var(--err); }
+
   .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
 
@@ -316,29 +360,31 @@
 </header>
 
 <div class="shell">
-  <aside class="side filters" id="filters" aria-label="Filtros">
+  <aside class="side filters" id="filters" aria-label="Carpetas, listas y filtros">
     <div class="side-head">
-      <h2>Filtros</h2>
+      <h2>Biblioteca</h2>
       <span>
         <button class="btn small ghost" type="button" data-action="clear-filters" id="filters-clear" hidden>Limpiar</button>
         <button class="icon-btn side-close" type="button" data-close="filters" aria-label="Cerrar">×</button>
       </span>
     </div>
+    <nav class="org" id="org-nav" aria-label="Carpetas y listas"></nav>
     <div id="facet-groups"></div>
   </aside>
 
   <main>
     <section class="library" id="library-view">
-      <div class="lib-title">
+      <div class="lib-title" id="lib-head">
         <h1>Biblioteca</h1>
       </div>
+      <div class="lib-sub" id="lib-sub"></div>
       <div class="toolbar">
         <div class="search-wrap">
           <span class="glass" aria-hidden="true">⌕</span>
           <input type="search" id="search" placeholder="Buscar en títulos, autores y contenido…" aria-label="Buscar" autocomplete="off">
           <kbd>/</kbd>
         </div>
-        <button class="btn" type="button" id="open-filters" aria-controls="filters" aria-expanded="false">Filtros <span class="count-pill" data-active-count hidden></span></button>
+        <button class="btn" type="button" id="open-filters" aria-controls="filters" aria-expanded="false">Carpetas y filtros <span class="count-pill" data-active-count hidden></span></button>
         <select class="sort" id="sort" aria-label="Ordenar">
           <option value="relevance">Relevancia</option>
           <option value="newest">Publicación: más nuevos</option>
@@ -347,6 +393,8 @@
           <option value="longest">Más largos</option>
           <option value="shortest">Más cortos</option>
           <option value="author">Autor A–Z</option>
+          <option value="title">Título A–Z</option>
+          <option value="list">Orden de la lista</option>
         </select>
       </div>
       <div class="chips" id="chips"></div>
@@ -354,6 +402,7 @@
       <ul class="results" id="results"></ul>
     </section>
     <section id="reader-view" hidden></section>
+    <section id="item-view" hidden></section>
     <section class="add" id="add-view" hidden>
       <p class="eyebrow">Tus bookmarks, tu biblioteca</p>
       <h1>Descargá los artículos de X que guardaste en bookmarks</h1>
@@ -403,6 +452,22 @@
         </div>
         <div class="form-error" id="form-error" hidden></div>
       </form>
+      <h2 class="section-title">O registrá un libro, paper o documento</h2>
+      <form class="add-card item-form" id="register-form">
+        <div id="register-fields"></div>
+        <label class="check"><input type="checkbox" id="register-physical"> <span>Lo tengo en mi biblioteca física<small>Impreso o comprado. Podés registrarlo aunque no tengas el PDF.</small></span></label>
+        <label class="field" id="register-location-field" hidden>Ubicación (opcional)
+          <input type="text" id="register-location" placeholder="Estante 2, prestado a…">
+        </label>
+        <label class="field">Etiquetas (separadas por coma)
+          <input type="text" id="register-tags" placeholder="cálculo, primer año">
+        </label>
+        <div class="add-row">
+          <span class="empty">La sincronización de PDFs llega en la próxima etapa.</span>
+          <button class="btn" type="submit">Registrar en la biblioteca</button>
+        </div>
+        <div class="form-error" id="register-error" hidden></div>
+      </form>
       <section class="add-jobs">
         <div class="side-head">
           <h2>En curso y recientes</h2>
@@ -416,12 +481,41 @@
 
 <div class="scrim" id="scrim" hidden></div>
 <div class="toast" id="toast" role="status"></div>
+<datalist id="all-tags"></datalist>
+
+<dialog id="ask-dialog" aria-labelledby="ask-title">
+  <form method="dialog" id="ask-form">
+    <div class="dialog-head"><h2 id="ask-title"></h2></div>
+    <p class="empty" id="ask-message" hidden></p>
+    <input type="text" id="ask-input" autocomplete="off" aria-labelledby="ask-title">
+    <div class="form-error" id="ask-error" hidden></div>
+    <div class="dialog-actions">
+      <button class="btn" type="button" id="ask-cancel">Cancelar</button>
+      <button class="btn dark" type="submit" id="ask-ok">Aceptar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="organizer-dialog" aria-labelledby="organizer-title">
+  <div class="dialog-head">
+    <h2 id="organizer-title"></h2>
+    <button class="icon-btn" type="button" data-close-dialog aria-label="Cerrar">×</button>
+  </div>
+  <div id="organizer-body"></div>
+</dialog>
 
 <script>
 const STAGES = { extract: "Extrayendo artículo", signals: "Leyendo comentarios y signals", render: "Renderizando", write: "Guardando archivos" };
 const STATUS_LABELS = { queued: "En cola", running: "Descargando", done: "Listo", error: "Error" };
 const DATE_LABELS = { "7d": "Últimos 7 días", "30d": "Últimos 30 días", "90d": "Últimos 3 meses", "365d": "Último año" };
+const KIND_LABELS = {
+  article: "Artículo de X", book: "Libro", paper: "Paper", notes: "Notas de curso", slides: "Slides",
+  "problem-set": "Práctico / repartido", handwritten: "Notas manuscritas", document: "Otro documento",
+};
 const FACETS = [
+  { key: "kind", label: "Tipo", kind: "multi", primary: true },
+  { key: "tag", label: "Etiquetas", kind: "multi", primary: true },
+  { key: "physical", label: "Biblioteca física", kind: "multi" },
   { key: "author", label: "Autor", kind: "multi", primary: true },
   { key: "pub", label: "Fecha de publicación", kind: "date", primary: true },
   { key: "len", label: "Largo de lectura", kind: "multi" },
@@ -429,13 +523,16 @@ const FACETS = [
   { key: "has", label: "Contenido", kind: "multi" },
   { key: "dl", label: "Fecha de descarga", kind: "date" },
 ];
-const MULTI_KEYS = ["author", "len", "lang", "has"];
+const MULTI_KEYS = ["kind", "tag", "physical", "author", "len", "lang", "has"];
+// Carpeta y lista son navegacion, no filtros: "Limpiar" no las quita.
+const NAV_KEYS = ["q", "sort", "folder", "list"];
 const AUTHOR_PREVIEW = 8;
 
 const state = {
   jobs: [],
   data: null,
-  open: new Set(["author", "pub"]),
+  open: new Set(["kind", "tag"]),
+  org: { folders: [], lists: [], all_tags: [], unfiled: 0 },
   authorFilter: "",
   authorExpanded: false,
   lastLibraryHash: "#/",
@@ -544,7 +641,7 @@ function setDateRange(key, edge, value) {
 
 function clearFilters() {
   setParams((params) => {
-    for (const key of [...params.keys()]) if (key !== "q" && key !== "sort") params.delete(key);
+    for (const key of [...params.keys()]) if (!NAV_KEYS.includes(key)) params.delete(key);
   });
 }
 
@@ -599,10 +696,14 @@ async function loadLibrary() {
 
 function renderLibrary(params) {
   const data = state.data;
+  setOrganization(data);
   if (document.activeElement !== $("search")) $("search").value = params.get("q") || "";
+  renderOrgNav(params);
+  renderLibraryHead(params);
 
   const sort = $("sort");
   sort.querySelector('option[value="relevance"]').disabled = data.query.length === 0;
+  sort.querySelector('option[value="list"]').hidden = !params.get("list");
   sort.value = data.sort;
 
   const active = activeFilterCount(params);
@@ -617,25 +718,38 @@ function renderLibrary(params) {
   $("result-count").textContent = data.total === 0
     ? ""
     : data.count === data.total
-      ? `${data.total} artículos`
-      : `${data.count} de ${data.total} artículos`;
+      ? `${data.total} items`
+      : `${data.count} de ${data.total} items`;
 
   if (data.total === 0) {
-    $("results").innerHTML = '<li class="no-results">Todavía no hay artículos. Usá “Descargar” para empezar.</li>';
+    $("results").innerHTML = '<li class="no-results">Tu biblioteca está vacía. Usá “Agregar” para empezar.</li>';
     return;
   }
   if (data.count === 0) {
-    $("results").innerHTML = `<li class="no-results">Sin resultados para esta búsqueda y filtros.<br><br>
+    const scoped = params.get("folder") || params.get("list");
+    const filtered = activeFilterCount(params) > 0 || params.get("q");
+    $("results").innerHTML = scoped && !filtered
+      ? `<li class="no-results">${params.get("list") ? "Esta lista todavía no tiene items." : "Acá todavía no hay nada."}<br>Usá “Organizar” en cualquier item de la biblioteca para agregarlo.</li>`
+      : `<li class="no-results">Sin resultados para esta búsqueda y filtros.<br><br>
       <button class="btn" type="button" data-action="clear-all">Limpiar búsqueda y filtros</button></li>`;
     return;
   }
 
-  $("results").innerHTML = data.results.map((article) => {
+  const listId = params.get("list");
+  const manualOrder = listId && data.sort === "list" && data.count === (state.org.lists.find((list) => list.id === listId)?.count ?? -1);
+
+  $("results").innerHTML = data.results.map((article, index) => {
+    const isArticle = article.kind === "article";
+    const author = article.author_name || article.author_handle;
     const meta = [
-      `<span class="author">${avatarHtml(article.author_avatar)}${escapeHtml(article.author_name || article.author_handle)}</span>`,
-      article.author_name ? `<span>${escapeHtml(article.author_handle)}</span>` : "",
-      article.published_at ? `<span title="Publicado">${formatDate(article.published_at)}</span>` : "",
-      `<span>${article.reading_minutes} min</span>`,
+      isArticle ? "" : `<span class="tag">${escapeHtml(KIND_LABELS[article.kind] ?? article.kind)}</span>`,
+      author ? `<span class="author">${avatarHtml(article.author_avatar)}${escapeHtml(author)}</span>` : "",
+      article.author_name && article.author_handle ? `<span>${escapeHtml(article.author_handle)}</span>` : "",
+      isArticle
+        ? (article.published_at ? `<span title="Publicado">${formatDate(article.published_at)}</span>` : "")
+        : (article.year ? `<span>${article.year}</span>` : ""),
+      article.reading_minutes ? `<span>${article.reading_minutes} min</span>` : "",
+      article.physical.owned ? `<span class="physical" title="${escapeHtml(article.physical.location ?? "En tu biblioteca física")}">En físico</span>` : "",
       article.lang !== "other" ? `<span class="tag">${article.lang}</span>` : "",
       article.image_count ? `<span>${article.image_count} img</span>` : "",
       article.embed_count ? `<span>${article.embed_count} embebidos</span>` : "",
@@ -644,13 +758,28 @@ function renderLibrary(params) {
     const thumb = article.thumbnail
       ? `<img class="thumb" src="${escapeHtml(article.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
       : "";
-    return `<li class="row"><a href="#/a/${encodeURIComponent(article.slug)}"${thumb ? ' class="has-thumb"' : ""}>
+    const href = article.slug ? `#/a/${encodeURIComponent(article.slug)}` : `#/i/${encodeURIComponent(article.item_id)}`;
+    const snippet = segmentsHtml(article.snippet);
+    const label = escapeHtml(article.title);
+    const listTools = listId ? `
+        ${manualOrder ? `<button class="btn small ghost" type="button" data-list-move="-1" ${index === 0 ? "disabled" : ""} aria-label="Subir ${label}" title="Subir">↑</button>
+        <button class="btn small ghost" type="button" data-list-move="1" ${index === data.results.length - 1 ? "disabled" : ""} aria-label="Bajar ${label}" title="Bajar">↓</button>` : ""}
+        <button class="btn small ghost" type="button" data-list-note aria-label="Nota de ${label}">Nota</button>
+        <button class="btn small ghost" type="button" data-list-remove aria-label="Quitar ${label} de la lista">Quitar</button>` : "";
+    return `<li class="row" data-item="${escapeHtml(article.item_id)}" data-index="${index}"><a href="${href}"${thumb ? ' class="has-thumb"' : ""}>
       <div>
         <h2>${segmentsHtml(article.title_segments)}</h2>
         <div class="meta">${meta}</div>
-        <p class="snippet">${segmentsHtml(article.snippet)}</p>
+        ${snippet ? `<p class="snippet">${snippet}</p>` : ""}
       </div>${thumb}
-    </a></li>`;
+    </a>
+    <div class="row-foot">
+      ${manualOrder ? `<span class="pos">${index + 1}.</span>` : ""}
+      ${article.tags.map((tag) => `<button class="tagchip" type="button" data-filter-tag="${escapeHtml(tag)}" title="Filtrar por esta etiqueta">${escapeHtml(tag)}</button>`).join("")}
+      ${listId && article.list_note ? `<span class="note">${escapeHtml(article.list_note)}</span>` : ""}
+      <span class="spacer"></span>${listTools}
+      <button class="btn small ghost" type="button" data-organize aria-label="Organizar ${label}">Organizar</button>
+    </div></li>`;
   }).join("");
 }
 
@@ -724,7 +853,7 @@ function multiFacetBody(key, options, params) {
   const items = visible.map((option) => {
     const checked = selected.has(option.value);
     const label = key === "author"
-      ? `${avatarHtml(option.avatar)}${escapeHtml(option.label)} <small>${escapeHtml(option.value)}</small>`
+      ? `${avatarHtml(option.avatar)}${escapeHtml(option.label)} <small>${escapeHtml(option.handle ?? "")}</small>`
       : escapeHtml(option.label);
     return `<label class="opt ${option.count === 0 && !checked ? "zero" : ""}">
       <input type="checkbox" data-multi="${key}" value="${escapeHtml(option.value)}" ${checked ? "checked" : ""}>
@@ -735,7 +864,8 @@ function multiFacetBody(key, options, params) {
   const search = key === "author"
     ? `<input type="text" class="facet-search" data-author-search placeholder="Buscar autor…" value="${escapeHtml(state.authorFilter)}" aria-label="Buscar autor">`
     : "";
-  return search + (items || '<div class="empty">Sin coincidencias.</div>') + more;
+  const empty = key === "tag" ? "Todavía no hay etiquetas. Agregalas con “Organizar”." : "Sin coincidencias.";
+  return search + (items || `<div class="empty">${empty}</div>`) + more;
 }
 
 function dateFacetBody(key, presets, params) {
@@ -765,6 +895,292 @@ function renderFacets() {
     input?.focus();
     input?.setSelectionRange(input.value.length, input.value.length);
   }
+}
+
+// ---------- organizacion: carpetas, listas, etiquetas ----------
+
+function setOrganization(data) {
+  state.org = { folders: data.folders, lists: data.lists, all_tags: data.all_tags, unfiled: data.unfiled };
+  $("all-tags").innerHTML = data.all_tags.map((entry) => `<option value="${escapeHtml(entry.tag)}"></option>`).join("");
+}
+
+async function refreshOrganization() {
+  setOrganization(await api("/api/catalog"));
+}
+
+// Carpetas en orden de arbol, con su profundidad.
+function folderTree() {
+  const children = new Map();
+  for (const folder of state.org.folders) {
+    const key = folder.parent_id ?? "";
+    if (!children.has(key)) children.set(key, []);
+    children.get(key).push(folder);
+  }
+  const ordered = [];
+  const walk = (parent, depth) => {
+    for (const folder of children.get(parent) ?? []) {
+      ordered.push({ folder, depth });
+      walk(folder.id, depth + 1);
+    }
+  };
+  walk("", 0);
+  return ordered;
+}
+
+function folderPath(id) {
+  const byId = new Map(state.org.folders.map((folder) => [folder.id, folder]));
+  const names = [];
+  for (let folder = byId.get(id); folder; folder = byId.get(folder.parent_id)) names.unshift(folder.name);
+  return names.join(" / ");
+}
+
+function renderOrgNav(params) {
+  const folderId = params.get("folder");
+  const listId = params.get("list");
+  const row = (attrs, label, count, active, depth = 0) =>
+    `<button class="org-row ${active ? "active" : ""}" type="button" ${attrs} ${active ? 'aria-current="true"' : ""} style="padding-left:${8 + depth * 14}px">
+      <span class="label">${escapeHtml(label)}</span><span class="n">${count}</span></button>`;
+  const folders = folderTree().map(({ folder, depth }) =>
+    row(`data-nav-folder="${escapeHtml(folder.id)}"`, folder.name, folder.count, folder.id === folderId, depth)).join("");
+  const lists = state.org.lists.map((list) =>
+    row(`data-nav-list="${escapeHtml(list.id)}"`, list.name, list.count, list.id === listId)).join("");
+
+  $("org-nav").innerHTML = row('data-nav-all', "Todo", state.data.total, !folderId && !listId)
+    + row('data-nav-folder="none"', "Sin clasificar", state.org.unfiled, folderId === "none")
+    + `<div class="org-head"><span>Carpetas</span><button class="icon-btn" type="button" data-action="new-folder" aria-label="Nueva carpeta" title="Nueva carpeta">+</button></div>`
+    + (folders || '<div class="empty">Todavía no hay carpetas.</div>')
+    + `<div class="org-head"><span>Listas de lectura</span><button class="icon-btn" type="button" data-action="new-list" aria-label="Nueva lista de lectura" title="Nueva lista de lectura">+</button></div>`
+    + (lists || '<div class="empty">Todavía no hay listas.</div>');
+}
+
+function renderLibraryHead(params) {
+  const folder = state.org.folders.find((candidate) => candidate.id === params.get("folder"));
+  const list = state.org.lists.find((candidate) => candidate.id === params.get("list"));
+  let title = "Biblioteca";
+  let actions = "";
+  let sub = "";
+
+  if (list) {
+    title = list.name;
+    const inFolders = state.org.folders.filter((candidate) => candidate.list_ids.includes(list.id));
+    sub = `<span>Lista de lectura${list.description ? ` · ${escapeHtml(list.description)}` : ""}${inFolders.length ? ` · en ${inFolders.map((candidate) => escapeHtml(folderPath(candidate.id))).join(", ")}` : ""}</span>`;
+    actions = `<button class="btn small" type="button" data-action="rename-list">Renombrar</button>
+      <button class="btn small" type="button" data-action="describe-list">Descripción</button>
+      <button class="btn small" type="button" data-action="list-folders">Guardar en carpeta</button>
+      <button class="btn small danger" type="button" data-action="delete-list">Eliminar</button>`;
+  } else if (folder) {
+    title = folderPath(folder.id);
+    const lists = state.org.lists.filter((candidate) => folder.list_ids.includes(candidate.id));
+    sub = lists.length
+      ? `<span>Listas en esta carpeta:</span>${lists.map((candidate) => `<button class="tagchip" type="button" data-nav-list="${escapeHtml(candidate.id)}">${escapeHtml(candidate.name)}</button>`).join("")}`
+      : "";
+    actions = `<button class="btn small" type="button" data-action="new-subfolder">Nueva subcarpeta</button>
+      <button class="btn small" type="button" data-action="rename-folder">Renombrar</button>
+      <button class="btn small danger" type="button" data-action="delete-folder">Eliminar</button>`;
+  } else if (params.get("folder") === "none") {
+    title = "Sin clasificar";
+    sub = "<span>Items que todavía no están en ninguna carpeta.</span>";
+  }
+
+  $("lib-head").innerHTML = `<h1>${escapeHtml(title)}</h1><div class="head-actions">${actions}</div>`;
+  $("lib-sub").innerHTML = sub;
+}
+
+// Dialogo unico para pedir un texto o una confirmacion. Resuelve null si se cancela.
+function ask({ title, message = "", value = null, ok = "Aceptar", danger = false }) {
+  const dialog = $("ask-dialog");
+  $("ask-title").textContent = title;
+  $("ask-message").textContent = message;
+  $("ask-message").hidden = !message;
+  $("ask-input").hidden = value === null;
+  $("ask-input").value = value ?? "";
+  $("ask-error").hidden = true;
+  $("ask-ok").textContent = ok;
+  $("ask-ok").classList.toggle("danger", danger);
+  dialog.returnValue = "";
+  dialog.showModal();
+  if (value !== null) $("ask-input").select();
+  return new Promise((resolve) => {
+    dialog.addEventListener("close", () => {
+      resolve(dialog.returnValue === "ok" ? (value === null ? true : $("ask-input").value.trim()) : null);
+    }, { once: true });
+  });
+}
+$("ask-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  $("ask-dialog").close("ok");
+});
+$("ask-cancel").addEventListener("click", () => $("ask-dialog").close(""));
+
+const jsonInit = (method, body) => ({ method, headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
+const navigateTo = (key, id) => setParams((params) => {
+  params.delete("folder");
+  params.delete("list");
+  if (key) params.set(key, id);
+});
+
+// Acciones sobre carpetas y listas. Los errores de dominio se muestran en un toast.
+async function organizationAction(action) {
+  const params = currentParams();
+  const folderId = params.get("folder");
+  const listId = params.get("list");
+  const folder = state.org.folders.find((candidate) => candidate.id === folderId);
+  const list = state.org.lists.find((candidate) => candidate.id === listId);
+
+  if (action === "new-folder" || action === "new-subfolder") {
+    const parent = action === "new-subfolder" ? folder : null;
+    const name = await ask({ title: parent ? `Nueva subcarpeta en ${parent.name}` : "Nueva carpeta", value: "", ok: "Crear" });
+    if (!name) return;
+    const created = await api("/api/folders", jsonInit("POST", { name, parent_id: parent?.id ?? null }));
+    return navigateTo("folder", created.id);
+  }
+  if (action === "rename-folder" && folder) {
+    const name = await ask({ title: "Renombrar carpeta", value: folder.name, ok: "Guardar" });
+    if (!name) return;
+    await api(`/api/folders/${folder.id}`, jsonInit("PATCH", { name }));
+    return loadLibrary();
+  }
+  if (action === "delete-folder" && folder) {
+    const sure = await ask({
+      title: `Eliminar la carpeta “${folder.name}”`,
+      message: "También se eliminan sus subcarpetas. Los items y las listas que contiene siguen en tu biblioteca.",
+      ok: "Eliminar", danger: true,
+    });
+    if (!sure) return;
+    await api(`/api/folders/${folder.id}`, { method: "DELETE" });
+    return navigateTo(folder.parent_id ? "folder" : null, folder.parent_id);
+  }
+  if (action === "new-list") {
+    const name = await ask({ title: "Nueva lista de lectura", value: "", ok: "Crear" });
+    if (!name) return;
+    const created = await api("/api/lists", jsonInit("POST", { name }));
+    return navigateTo("list", created.id);
+  }
+  if (action === "rename-list" && list) {
+    const name = await ask({ title: "Renombrar lista", value: list.name, ok: "Guardar" });
+    if (!name) return;
+    await api(`/api/lists/${list.id}`, jsonInit("PATCH", { name }));
+    return loadLibrary();
+  }
+  if (action === "describe-list" && list) {
+    const description = await ask({ title: "Descripción de la lista", value: list.description, ok: "Guardar" });
+    if (description === null) return;
+    await api(`/api/lists/${list.id}`, jsonInit("PATCH", { description }));
+    return loadLibrary();
+  }
+  if (action === "delete-list" && list) {
+    const sure = await ask({
+      title: `Eliminar la lista “${list.name}”`,
+      message: "Los items de la lista siguen en tu biblioteca.",
+      ok: "Eliminar", danger: true,
+    });
+    if (!sure) return;
+    await api(`/api/lists/${list.id}`, { method: "DELETE" });
+    return navigateTo(null);
+  }
+  if (action === "list-folders" && list) {
+    $("organizer-title").textContent = `Guardar “${list.name}” en carpetas`;
+    $("organizer-body").innerHTML = listFoldersHtml(list.id);
+    $("organizer-dialog").showModal();
+  }
+}
+
+function listFoldersHtml(listId) {
+  const rows = folderTree().map(({ folder, depth }) => `<label class="opt" style="padding-left:${4 + depth * 16}px">
+    <input type="checkbox" data-list-in-folder="${escapeHtml(folder.id)}" ${folder.list_ids.includes(listId) ? "checked" : ""}>
+    <span class="label">${escapeHtml(folder.name)}</span></label>`).join("");
+  return `<div class="organizer" data-org-list="${escapeHtml(listId)}"><div class="opt-list">${rows || '<div class="empty">Todavía no hay carpetas.</div>'}</div></div>`;
+}
+
+// Organizador de un item: etiquetas, copia fisica, carpetas y listas.
+// Se usa igual en el dialogo de la biblioteca, en el lector y en la ficha.
+function organizerHtml(item) {
+  const folders = folderTree().map(({ folder, depth }) => `<label class="opt" style="padding-left:${4 + depth * 16}px">
+    <input type="checkbox" data-in-folder="${escapeHtml(folder.id)}" ${item.folder_ids.includes(folder.id) ? "checked" : ""}>
+    <span class="label">${escapeHtml(folder.name)}</span></label>`).join("");
+  const lists = state.org.lists.map((list) => `<label class="opt">
+    <input type="checkbox" data-in-list="${escapeHtml(list.id)}" ${item.list_ids.includes(list.id) ? "checked" : ""}>
+    <span class="label">${escapeHtml(list.name)}</span></label>`).join("");
+  return `<div class="organizer" data-org-item="${escapeHtml(item.id)}">
+    <div>
+      <h4>Etiquetas</h4>
+      <div class="tag-edit">
+        ${item.tags.map((tag) => `<button class="chip" type="button" data-remove-tag="${escapeHtml(tag)}" aria-label="Quitar etiqueta ${escapeHtml(tag)}">${escapeHtml(tag)} <span aria-hidden="true">×</span></button>`).join("")}
+        <input type="text" data-add-tag list="all-tags" placeholder="Agregar etiqueta y Enter" aria-label="Agregar etiqueta" autocomplete="off">
+      </div>
+    </div>
+    <div>
+      <label class="check"><input type="checkbox" data-physical ${item.physical.owned ? "checked" : ""}> <span>Lo tengo en mi biblioteca física</span></label>
+      ${item.physical.owned ? `<input type="text" data-physical-location value="${escapeHtml(item.physical.location ?? "")}" placeholder="Ubicación (opcional): estante, prestado a…" aria-label="Ubicación física" style="margin-top:8px">` : ""}
+    </div>
+    <div>
+      <h4>Carpetas</h4>
+      <div class="opt-list">${folders || '<div class="empty">Todavía no hay carpetas. Creá una desde la biblioteca.</div>'}</div>
+    </div>
+    <div>
+      <h4>Listas de lectura</h4>
+      <div class="opt-list">${lists || '<div class="empty">Todavía no hay listas. Creá una desde la biblioteca.</div>'}</div>
+    </div>
+  </div>`;
+}
+
+async function openOrganizer(itemId) {
+  const item = await api(`/api/items/${encodeURIComponent(itemId)}`);
+  $("organizer-title").textContent = item.title;
+  $("organizer-body").innerHTML = organizerHtml(item);
+  $("organizer-dialog").showModal();
+}
+
+$("organizer-dialog").addEventListener("close", () => {
+  if (lastView === "library") loadLibrary();
+});
+
+// Aplica un cambio del organizador y lo vuelve a dibujar con el estado guardado.
+async function organizerChange(container, change) {
+  const id = container.dataset.orgItem;
+  const tags = [...container.querySelectorAll("[data-remove-tag]")].map((chip) => chip.dataset.removeTag);
+  try {
+    if (change.addTag) await api(`/api/items/${id}`, jsonInit("PATCH", { tags: [...tags, change.addTag] }));
+    if (change.removeTag) await api(`/api/items/${id}`, jsonInit("PATCH", { tags: tags.filter((tag) => tag !== change.removeTag) }));
+    if (change.physical) await api(`/api/items/${id}`, jsonInit("PATCH", { physical: change.physical }));
+    if (change.folder) await api(`/api/folders/${change.folder}/items/${id}`, { method: change.checked ? "PUT" : "DELETE" });
+    if (change.list) await api(`/api/lists/${change.list}/items/${id}`, change.checked ? jsonInit("PUT") : { method: "DELETE" });
+  } catch (error) {
+    toast(error.message);
+  }
+  const [item] = await Promise.all([api(`/api/items/${id}`), refreshOrganization()]);
+  const refocus = change.addTag || change.removeTag;
+  container.outerHTML = organizerHtml(item);
+  if (refocus) document.querySelector(`[data-org-item="${CSS.escape(id)}"] [data-add-tag]`)?.focus();
+}
+
+function commitTagInput(input) {
+  const tag = input.value.trim();
+  if (!tag) return;
+  input.value = "";
+  organizerChange(input.closest("[data-org-item]"), { addTag: tag });
+}
+
+// Acciones de una fila dentro de una lista de lectura.
+async function listRowAction(row, button) {
+  const listId = currentParams().get("list");
+  const itemId = row.dataset.item;
+  const entry = `/api/lists/${listId}/items/${itemId}`;
+  try {
+    if (button.dataset.listMove) {
+      await api(entry, jsonInit("PATCH", { position: Number(row.dataset.index) + Number(button.dataset.listMove) }));
+    } else if ("listRemove" in button.dataset) {
+      await api(entry, { method: "DELETE" });
+    } else if ("listNote" in button.dataset) {
+      const current = state.data.results.find((result) => result.item_id === itemId)?.list_note ?? "";
+      const note = await ask({ title: "Nota para esta lectura", value: current, ok: "Guardar" });
+      if (note === null) return;
+      await api(entry, jsonInit("PATCH", { note }));
+    }
+  } catch (error) {
+    toast(error.message);
+  }
+  loadLibrary();
 }
 
 // ---------- paneles ----------
@@ -814,7 +1230,25 @@ document.addEventListener("click", (event) => {
   const chip = target.closest("[data-chip]");
   if (chip) return state.chipActions[Number(chip.dataset.chip)]();
 
+  if (target.closest("[data-close-dialog]")) return target.closest("dialog").close();
+  if (target.closest("[data-nav-all]")) return navigateTo(null);
+  const navFolder = target.closest("[data-nav-folder]");
+  if (navFolder) return navigateTo("folder", navFolder.dataset.navFolder);
+  const navList = target.closest("[data-nav-list]");
+  if (navList) return navigateTo("list", navList.dataset.navList);
+  const filterTag = target.closest("[data-filter-tag]");
+  if (filterTag) return toggleListValue("tag", filterTag.dataset.filterTag, true);
+  const organize = target.closest("[data-organize]");
+  if (organize) return openOrganizer(organize.closest("[data-item]").dataset.item).catch((error) => toast(error.message));
+  const listButton = target.closest("[data-list-move], [data-list-remove], [data-list-note]");
+  if (listButton) return listRowAction(listButton.closest("[data-item]"), listButton);
+  const removeTag = target.closest("[data-remove-tag]");
+  if (removeTag) return organizerChange(removeTag.closest("[data-org-item]"), { removeTag: removeTag.dataset.removeTag });
+
   const action = target.closest("[data-action]")?.dataset.action;
+  if (action && /-(folder|subfolder|list|folders)$/.test(action)) {
+    return organizationAction(action).catch((error) => toast(error.message));
+  }
   if (action === "clear-filters") return clearFilters();
   if (action === "clear-all") return setParams((params) => { for (const key of [...params.keys()]) params.delete(key); });
   if (action === "toggle-authors") {
@@ -828,6 +1262,20 @@ document.addEventListener("change", (event) => {
   if (target.matches("[data-multi]")) return toggleListValue(target.dataset.multi, target.value, target.checked);
   if (target.matches("[data-date]")) return setDateFilter(target.dataset.date, target.value);
   if (target.matches("[data-range]")) return setDateRange(target.dataset.range, target.dataset.edge, target.value);
+
+  const organizer = target.closest("[data-org-item]");
+  if (organizer) {
+    if (target.matches("[data-add-tag]")) return commitTagInput(target);
+    if (target.matches("[data-physical]")) return organizerChange(organizer, { physical: { owned: target.checked } });
+    if (target.matches("[data-physical-location]")) return organizerChange(organizer, { physical: { owned: true, location: target.value } });
+    if (target.matches("[data-in-folder]")) return organizerChange(organizer, { folder: target.dataset.inFolder, checked: target.checked });
+    if (target.matches("[data-in-list]")) return organizerChange(organizer, { list: target.dataset.inList, checked: target.checked });
+  }
+  if (target.matches("[data-list-in-folder]")) {
+    const listId = target.closest("[data-org-list]").dataset.orgList;
+    return api(`/api/folders/${target.dataset.listInFolder}/lists/${listId}`, { method: target.checked ? "PUT" : "DELETE" })
+      .catch((error) => toast(error.message));
+  }
 });
 
 document.addEventListener("input", (event) => {
@@ -838,6 +1286,10 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && event.target.matches?.("[data-add-tag]")) {
+    event.preventDefault();
+    return commitTagInput(event.target);
+  }
   if (event.key === "Escape") return closeOverlays();
   const typing = event.target.closest("input, textarea, select, [contenteditable]");
   if (event.key === "/" && !typing && lastView === "library") {
@@ -907,6 +1359,136 @@ function renderJobs() {
       : `<span class="badge ${job.status}">${STATUS_LABELS[job.status]}</span>`;
     return `<div class="job"><div class="job-head">${title}${status}</div>${detail}</div>`;
   }).join("");
+}
+
+// ---------- registrar y editar items sin fuente ----------
+
+function itemFieldsHtml(item = {}) {
+  const kinds = Object.entries(KIND_LABELS).filter(([value]) => value !== "article");
+  return `<div class="field-grid">
+      <label class="field">Tipo
+        <select name="kind">${kinds.map(([value, label]) => `<option value="${value}" ${item.kind === value ? "selected" : ""}>${label}</option>`).join("")}</select>
+      </label>
+      <label class="field">Año
+        <input type="text" name="year" inputmode="numeric" value="${escapeHtml(item.year ?? "")}" placeholder="2019">
+      </label>
+    </div>
+    <label class="field">Título
+      <input type="text" name="title" value="${escapeHtml(item.title ?? "")}" required>
+    </label>
+    <label class="field">Autores (separados por coma)
+      <input type="text" name="authors" value="${escapeHtml((item.authors ?? []).join(", "))}">
+    </label>
+    <label class="field">Notas
+      <textarea name="notes" spellcheck="true">${escapeHtml(item.notes ?? "")}</textarea>
+    </label>`;
+}
+
+const splitCommas = (value) => value.split(",").map((entry) => entry.trim()).filter(Boolean);
+
+function readItemFields(form) {
+  const fields = Object.fromEntries(new FormData(form));
+  return {
+    kind: fields.kind,
+    title: fields.title,
+    authors: splitCommas(fields.authors),
+    year: fields.year.trim() || null,
+    notes: fields.notes,
+  };
+}
+
+$("register-fields").innerHTML = itemFieldsHtml();
+$("register-physical").addEventListener("change", () => {
+  $("register-location-field").hidden = !$("register-physical").checked;
+});
+$("register-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const errorBox = $("register-error");
+  errorBox.hidden = true;
+  try {
+    const item = await api("/api/items", jsonInit("POST", {
+      ...readItemFields(form),
+      tags: splitCommas($("register-tags").value),
+      physical: { owned: $("register-physical").checked, location: $("register-location").value },
+    }));
+    form.reset();
+    $("register-location-field").hidden = true;
+    toast("Registrado en la biblioteca");
+    location.hash = `#/i/${encodeURIComponent(item.id)}`;
+  } catch (error) {
+    errorBox.textContent = error.message;
+    errorBox.hidden = false;
+  }
+});
+
+async function renderItem(id) {
+  const view = $("item-view");
+  let item;
+  try {
+    [item] = await Promise.all([api(`/api/items/${encodeURIComponent(id)}`), refreshOrganization()]);
+  } catch (error) {
+    view.innerHTML = `<a class="back" href="${state.lastLibraryHash}">← Biblioteca</a><p class="form-error">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  if (currentItemId() !== id) return;
+  // Un articulo de X se lee en el lector, no en la ficha.
+  if (item.source?.ref?.slug) {
+    location.replace(`#/a/${encodeURIComponent(item.source.ref.slug)}`);
+    return;
+  }
+
+  const byline = [item.authors.join(", "), item.year].filter(Boolean).join(" · ");
+  view.innerHTML = `
+    <a class="back" href="${state.lastLibraryHash}">← Biblioteca</a>
+    <div class="reader">
+      <article class="doc">
+        <p class="eyebrow">${escapeHtml(item.kind_label)}</p>
+        <h1>${escapeHtml(item.title)}</h1>
+        <div class="byline">${escapeHtml(byline || "Sin autor registrado")}</div>
+        ${item.notes ? `<p class="notes">${escapeHtml(item.notes)}</p>` : ""}
+        <p class="hint">Este item todavía no tiene archivo. Vas a poder asociarle un PDF cuando llegue la sincronización de carpetas.</p>
+      </article>
+      <div class="panel">
+        <div class="box"><h3>Organizar</h3>${organizerHtml(item)}</div>
+        <div class="box"><h3>Datos</h3>
+          <form class="item-form" id="edit-item">
+            ${itemFieldsHtml(item)}
+            <div class="form-error" id="edit-error" hidden></div>
+            <div class="add-row" style="margin-top:0">
+              <button class="btn small danger" type="button" id="delete-item">Eliminar de la biblioteca</button>
+              <button class="btn" type="submit">Guardar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>`;
+
+  $("edit-item").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await api(`/api/items/${encodeURIComponent(id)}`, jsonInit("PATCH", readItemFields(event.currentTarget)));
+      toast("Guardado");
+      renderItem(id);
+    } catch (error) {
+      $("edit-error").textContent = error.message;
+      $("edit-error").hidden = false;
+    }
+  });
+  $("delete-item").addEventListener("click", async () => {
+    const sure = await ask({
+      title: `Eliminar “${item.title}”`,
+      message: "Se quita de la biblioteca y de todas las carpetas y listas. No se puede deshacer.",
+      ok: "Eliminar", danger: true,
+    });
+    if (!sure) return;
+    try {
+      await api(`/api/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+      location.hash = state.lastLibraryHash;
+    } catch (error) {
+      toast(error.message);
+    }
+  });
 }
 
 // ---------- sincronizar bookmarks ----------
@@ -1216,6 +1798,7 @@ async function renderReader(slug) {
           ${summary.status_url ? `<a class="btn" href="${escapeHtml(summary.status_url)}" target="_blank" rel="noopener">Abrir en X</a>` : ""}
           ${summary.status_url ? `<button class="btn" id="refetch" type="button">${summary.reply_count ? "Volver a descargar con comentarios" : "Descargar comentarios"}</button>` : ""}
         </div>
+        <div class="box"><h3>Organizar</h3><div id="reader-organizer"><div class="empty">Cargando…</div></div></div>
         ${renderSignals(signals)}
         <div class="box"><h3>Archivos</h3>
           <ul class="files">${summary.files.map((file) => `<li>
@@ -1225,6 +1808,16 @@ async function renderReader(slug) {
         </div>
       </div>
     </div>`;
+
+  if (data.item_id) {
+    Promise.all([api(`/api/items/${encodeURIComponent(data.item_id)}`), refreshOrganization()])
+      .then(([item]) => {
+        if (currentSlug() === slug) $("reader-organizer").innerHTML = organizerHtml(item);
+      })
+      .catch((error) => { $("reader-organizer").innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`; });
+  } else {
+    $("reader-organizer").innerHTML = '<div class="empty">Este artículo todavía no está en el catálogo.</div>';
+  }
 
   $("copy-md")?.addEventListener("click", async () => {
     await navigator.clipboard.writeText(markdown);
@@ -1249,16 +1842,23 @@ function currentSlug() {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+function currentItemId() {
+  const match = location.hash.match(/^#\/i\/(.+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 let lastView = null;
 function route() {
   const slug = currentSlug();
-  const view = slug ? "reader" : location.hash === "#/agregar" ? "add" : "library";
+  const itemId = currentItemId();
+  const view = slug ? "reader" : itemId ? "item" : location.hash === "#/agregar" ? "add" : "library";
   // Los filtros cambian el hash; solo cerramos paneles al pasar de vista.
   if (view !== lastView) closeOverlays();
   document.body.classList.toggle("no-filters", view !== "library");
   $("library-view").hidden = view !== "library";
   $("reader-view").hidden = view !== "reader";
   $("add-view").hidden = view !== "add";
+  $("item-view").hidden = view !== "item";
 
   if (view === "add") {
     window.scrollTo(0, 0);
@@ -1272,8 +1872,14 @@ function route() {
     renderReader(slug);
     return;
   }
+  if (itemId) {
+    window.scrollTo(0, 0);
+    lastView = "item";
+    renderItem(itemId);
+    return;
+  }
   state.lastLibraryHash = location.hash || "#/";
-  if (lastView === "reader") window.scrollTo(0, state.libraryScroll ?? 0);
+  if (lastView === "reader" || lastView === "item") window.scrollTo(0, state.libraryScroll ?? 0);
   lastView = "library";
   loadLibrary();
 }

@@ -1,8 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-// Indice en memoria de downloads/articles para busqueda de texto y facetas.
-// Se reconstruye solo cuando cambian los archivos (firma por mtime).
+// Busqueda de texto, filtros y facetas sobre "docs" en memoria.
+// Los docs de articulos salen de downloads/articles (el indice se reconstruye
+// solo cuando cambian los archivos, firma por mtime). La biblioteca agrega los
+// campos de catalogo (item_id, kind, tags, carpetas, listas) en catalog-search.js.
 
 const WORDS_PER_MINUTE = 230;
 const X_EPOCH_MS = 1288834974657n;
@@ -21,6 +23,17 @@ export const LENGTH_BUCKETS = [
   { value: "long", label: "Largo (>15 min)", max: Infinity },
 ];
 
+export const KIND_LABELS = {
+  article: "Artículo de X",
+  book: "Libro",
+  paper: "Paper",
+  notes: "Notas de curso",
+  slides: "Slides",
+  "problem-set": "Práctico / repartido",
+  handwritten: "Notas manuscritas",
+  document: "Otro documento",
+};
+
 export const FEATURES = {
   images: "Con imágenes",
   embeds: "Con posts embebidos",
@@ -33,7 +46,10 @@ const ENGLISH_HINTS = new Set(["the", "and", "of", "to", "is", "that", "it", "fo
 let cache = { signature: null, docs: [] };
 
 export async function searchLibrary(root, params, now = Date.now()) {
-  const docs = await loadIndex(root);
+  return searchDocs(await loadArticleDocs(root), params, now);
+}
+
+export function searchDocs(docs, params, now = Date.now()) {
   const query = parseQuery(params.get("q") ?? "");
   const filters = parseFilters(params);
 
@@ -46,7 +62,7 @@ export async function searchLibrary(root, params, now = Date.now()) {
   }
 
   const results = applyFilters(matched, filters, now);
-  const sort = resolveSort(params.get("sort"), query);
+  const sort = resolveSort(params.get("sort"), query, filters);
   results.sort(SORTERS[sort]);
 
   return {
@@ -66,7 +82,7 @@ export async function searchLibrary(root, params, now = Date.now()) {
 
 // Claves para saber si un bookmark ya esta en la biblioteca (por status o por titulo).
 export async function getLibraryKeys(root) {
-  const docs = await loadIndex(root);
+  const docs = await loadArticleDocs(root);
   return {
     statusIds: new Set(docs.map((doc) => doc.status_id).filter(Boolean)),
     titles: new Set(docs.map((doc) => doc.titleNorm).filter(Boolean)),
@@ -75,7 +91,7 @@ export async function getLibraryKeys(root) {
 
 // ---------- indice ----------
 
-async function loadIndex(root) {
+export async function loadArticleDocs(root) {
   let entries;
   try {
     entries = (await fs.readdir(root, { withFileTypes: true })).filter((entry) => entry.isDirectory());
@@ -113,12 +129,11 @@ async function indexArticle(dir, slug) {
   const title = document.article.title ?? slug;
   const authorName = document.source.author_name ?? "";
   const authorHandle = document.source.author_handle ?? "";
-  const [titleNorm, titleMap] = normalizeWithMap(title);
-  const [contentNorm, contentMap] = normalizeWithMap(content);
 
-  return {
+  return createDoc({
     slug,
     title,
+    content,
     author_name: authorName,
     author_handle: authorHandle,
     author_avatar: document.source.author_avatar ?? null,
@@ -132,13 +147,39 @@ async function indexArticle(dir, slug) {
     thumbnail: thumbnailUrl(slug, document.article.images?.[0]?.src),
     embed_count: document.article.embedded_posts?.length ?? 0,
     reply_count: signals?.conversation?.reply_count_collected ?? 0,
+  });
+}
+
+// Completa un doc con los campos derivados que usa la busqueda. Sirve tambien
+// para items sin articulo en disco (un libro registrado a mano).
+export function createDoc(fields) {
+  const [titleNorm, titleMap] = normalizeWithMap(fields.title);
+  const [contentNorm, contentMap] = normalizeWithMap(fields.content ?? "");
+  return {
+    slug: null,
+    author_name: "",
+    author_handle: "",
+    author_avatar: null,
+    status_url: null,
+    status_id: null,
+    published_at: null,
+    fetched_at: null,
+    words: 0,
+    reading_minutes: null,
+    image_count: 0,
+    thumbnail: null,
+    embed_count: 0,
+    reply_count: 0,
+    kind: "article",
+    ...fields,
+    content: fields.content ?? "",
+    author_key: fields.author_handle || fields.author_name || "",
     lang: detectLanguage(contentNorm),
-    content,
     titleNorm,
     titleMap,
     contentNorm,
     contentMap,
-    authorNorm: normalize(`${authorName} ${authorHandle}`),
+    authorNorm: normalize(`${fields.author_name ?? ""} ${fields.author_handle ?? ""}`),
   };
 }
 
@@ -211,6 +252,15 @@ function publicFields(doc) {
     embed_count: doc.embed_count,
     reply_count: doc.reply_count,
     lang: doc.lang,
+    item_id: doc.item_id ?? null,
+    kind: doc.kind,
+    year: doc.year ?? null,
+    tags: doc.tags ?? [],
+    physical: doc.physical ?? { owned: false, location: null },
+    has_source: doc.has_source ?? true,
+    folder_ids: doc.folder_ids ?? [],
+    list_ids: doc.list_ids ?? [],
+    list_note: doc.list_note ?? "",
   };
 }
 
@@ -345,6 +395,11 @@ function parseFilters(params) {
     lang: splitList(params.get("lang")),
     has: splitList(params.get("has")).filter((feature) => feature in FEATURES),
     dl: parseDateFilter(params.get("dl"), params.get("dl_from"), params.get("dl_to")),
+    kind: splitList(params.get("kind")),
+    tag: splitList(params.get("tag")),
+    physical: splitList(params.get("physical")),
+    folder: params.get("folder") || null,
+    list: params.get("list") || null,
   };
 }
 
@@ -371,6 +426,7 @@ function matchesDate(iso, filter, now) {
 }
 
 function lengthBucket(minutes) {
+  if (minutes == null) return null;
   return LENGTH_BUCKETS.find((bucket) => minutes < bucket.max || bucket.max === Infinity).value;
 }
 
@@ -382,12 +438,17 @@ function hasFeature(doc, feature) {
 }
 
 const PREDICATES = {
-  author: (doc, values) => values.length === 0 || values.includes(doc.author_handle),
+  author: (doc, values) => values.length === 0 || values.includes(doc.author_key),
   pub: (doc, filter, now) => matchesDate(doc.published_at, filter, now),
   len: (doc, values) => values.length === 0 || values.includes(lengthBucket(doc.reading_minutes)),
   lang: (doc, values) => values.length === 0 || values.includes(doc.lang),
   has: (doc, values) => values.every((feature) => hasFeature(doc, feature)),
   dl: (doc, filter, now) => matchesDate(doc.fetched_at, filter, now),
+  kind: (doc, values) => values.length === 0 || values.includes(doc.kind),
+  tag: (doc, values) => values.every((tag) => (doc.tags ?? []).includes(tag)),
+  physical: (doc, values) => values.length === 0 || values.includes(doc.physical?.owned ? "yes" : "no"),
+  folder: (doc, id) => !id || (id === "none" ? (doc.folder_ids ?? []).length === 0 : (doc.folder_scope ?? []).includes(id)),
+  list: (doc, id) => !id || (doc.list_ids ?? []).includes(id),
 };
 
 function applyFilters(entries, filters, now, skip = null) {
@@ -415,9 +476,10 @@ function datePresetCounts(entries, field, now) {
 // asi se ve cuantos resultados daria elegir otra opcion de la misma faceta.
 function buildFacets(matched, filters, now) {
   const authorBase = applyFilters(matched, filters, now, "author");
-  const authorCounts = countBy(authorBase, (doc) => doc.author_handle);
-  const authorNames = new Map(matched.map(({ doc }) => [doc.author_handle, doc.author_name]));
-  const authorAvatars = new Map(matched.map(({ doc }) => [doc.author_handle, doc.author_avatar]));
+  const authorCounts = countBy(authorBase.filter(({ doc }) => doc.author_key), (doc) => doc.author_key);
+  const authorNames = new Map(matched.map(({ doc }) => [doc.author_key, doc.author_name]));
+  const authorHandles = new Map(matched.map(({ doc }) => [doc.author_key, doc.author_handle]));
+  const authorAvatars = new Map(matched.map(({ doc }) => [doc.author_key, doc.author_avatar]));
   for (const handle of filters.author) {
     if (!authorCounts.has(handle)) authorCounts.set(handle, 0);
   }
@@ -425,10 +487,20 @@ function buildFacets(matched, filters, now) {
   const lenCounts = countBy(applyFilters(matched, filters, now, "len"), (doc) => lengthBucket(doc.reading_minutes));
   const langCounts = countBy(applyFilters(matched, filters, now, "lang"), (doc) => doc.lang);
   const hasBase = applyFilters(matched, filters, now, "has");
+  const kindCounts = countBy(applyFilters(matched, filters, now, "kind"), (doc) => doc.kind);
+  const physicalCounts = countBy(applyFilters(matched, filters, now, "physical"), (doc) => doc.physical?.owned ? "yes" : "no");
+  // Las etiquetas se combinan con "y": cada una cuenta sobre lo ya filtrado.
+  const tagCounts = new Map();
+  for (const { doc } of applyFilters(matched, filters, now)) {
+    for (const tag of doc.tags ?? []) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+  }
+  for (const tag of filters.tag) {
+    if (!tagCounts.has(tag)) tagCounts.set(tag, 0);
+  }
 
   return {
     author: [...authorCounts.entries()]
-      .map(([value, count]) => ({ value, label: authorNames.get(value) || value, avatar: authorAvatars.get(value) ?? null, count }))
+      .map(([value, count]) => ({ value, label: authorNames.get(value) || value, handle: authorHandles.get(value) || "", avatar: authorAvatars.get(value) ?? null, count }))
       .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)),
     pub: datePresetCounts(applyFilters(matched, filters, now, "pub"), "published_at", now),
     len: LENGTH_BUCKETS.map((bucket) => ({ value: bucket.value, label: bucket.label, count: lenCounts.get(bucket.value) ?? 0 })),
@@ -440,6 +512,14 @@ function buildFacets(matched, filters, now) {
       return { value, label, count: base.filter(({ doc }) => hasFeature(doc, value)).length };
     }),
     dl: datePresetCounts(applyFilters(matched, filters, now, "dl"), "fetched_at", now),
+    kind: Object.entries(KIND_LABELS)
+      .map(([value, label]) => ({ value, label, count: kindCounts.get(value) ?? 0 }))
+      .filter((option) => option.count > 0 || filters.kind.includes(option.value)),
+    tag: [...tagCounts.entries()]
+      .map(([value, count]) => ({ value, label: value, count }))
+      .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)),
+    physical: [["yes", "En mi biblioteca física"], ["no", "Solo digital o sin copia"]]
+      .map(([value, label]) => ({ value, label, count: physicalCounts.get(value) ?? 0 })),
   };
 }
 
@@ -457,11 +537,18 @@ const SORTERS = {
   shortest: (left, right) => left.doc.words - right.doc.words,
   author: (left, right) => (left.doc.author_name || left.doc.author_handle)
     .localeCompare(right.doc.author_name || right.doc.author_handle),
+  title: (left, right) => left.doc.title.localeCompare(right.doc.title),
+  // Orden propio de la lista de lectura elegida.
+  list: (left, right) => (left.doc.list_position ?? 0) - (right.doc.list_position ?? 0),
 };
 
-function resolveSort(requested, query) {
-  if (requested && requested in SORTERS && !(requested === "relevance" && query.terms.length === 0)) {
+function resolveSort(requested, query, filters) {
+  const allowed = requested && requested in SORTERS
+    && !(requested === "relevance" && query.terms.length === 0)
+    && !(requested === "list" && !filters.list);
+  if (allowed) {
     return requested;
   }
-  return query.terms.length ? "relevance" : "newest";
+  if (query.terms.length) return "relevance";
+  return filters.list ? "list" : "newest";
 }

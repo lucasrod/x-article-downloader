@@ -16,14 +16,29 @@ import {
 } from "../core/article-schema.js";
 import { DEFAULT_DOWNLOAD_ROOT } from "../core/output.js";
 import { downloadArticle } from "../pipeline.js";
-import { searchLibrary } from "./library.js";
+import { createLibraryService } from "../library/application/library-service.js";
+import { createSqliteRepository } from "../library/adapters/sqlite-repository.js";
+import { createXArticleSource, xArticleKey } from "../library/adapters/x-article-source.js";
+import { createCatalogRoutes } from "./catalog-routes.js";
+import { searchCatalog } from "./catalog-search.js";
+import { loadArticleDocs } from "./library.js";
 import { createBookmarkSync } from "./sync.js";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.PORT || 4173);
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const LIBRARY_ROOT = path.resolve(DEFAULT_DOWNLOAD_ROOT);
+const LIBRARY_DB = path.resolve(process.env.LIBRARY_DB || "./library/library.sqlite");
 const MAX_JOBS_KEPT = 50;
+
+// Composicion de la biblioteca: dominio + casos de uso con sus adaptadores.
+const library = createLibraryService({
+  repository: createSqliteRepository(LIBRARY_DB),
+  sources: [createXArticleSource({ loadArticles: () => loadArticleDocs(LIBRARY_ROOT) })],
+  newId: randomUUID,
+  now: () => new Date().toISOString(),
+});
+const routeCatalog = createCatalogRoutes({ service: library, readJsonBody });
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -60,7 +75,8 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`x-article-downloader web en http://${HOST}:${PORT}`);
-  console.log(`Biblioteca: ${LIBRARY_ROOT}`);
+  console.log(`Articulos: ${LIBRARY_ROOT}`);
+  console.log(`Catalogo: ${LIBRARY_DB}`);
 });
 
 async function route(request, response) {
@@ -78,7 +94,12 @@ async function route(request, response) {
   }
 
   if (request.method === "GET" && url.pathname === "/api/library") {
-    return sendJson(response, 200, await searchLibrary(LIBRARY_ROOT, url.searchParams));
+    return sendJson(response, 200, await searchCatalog({ root: LIBRARY_ROOT, service: library, params: url.searchParams }));
+  }
+
+  const catalogResult = await routeCatalog({ method: request.method, parts, request });
+  if (catalogResult !== undefined) {
+    return sendJson(response, 200, catalogResult);
   }
 
   if (request.method === "GET" && parts[1] === "articles" && parts.length === 2) {
@@ -86,7 +107,10 @@ async function route(request, response) {
   }
 
   if (request.method === "GET" && parts[1] === "articles" && parts.length === 3) {
-    return sendJson(response, 200, await readArticle(parts[2]));
+    const article = await readArticle(parts[2]);
+    await library.syncSources();
+    const item = await library.findItemBySource(xArticleKey({ slug: parts[2], status_id: article.document?.source.status_id }));
+    return sendJson(response, 200, { ...article, item_id: item?.id ?? null });
   }
 
   if (request.method === "GET" && parts[1] === "articles" && parts[3] === "files" && parts.length >= 5) {
