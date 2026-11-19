@@ -66,6 +66,27 @@ export function refreshFromSource(item, captured, now) {
   return { ...item, title, authors, source: { ...item.source, ref }, updatedAt: now };
 }
 
+// Une `absorbed` dentro de `target`: el que queda conserva su identidad y su
+// descripcion, y suma lo curado del otro. El caso tipico es un libro registrado
+// a mano que absorbe el item creado por su PDF.
+export function absorbItem(target, absorbed, now) {
+  if (target.id === absorbed.id) {
+    throw invalid("No se puede unir un item consigo mismo.");
+  }
+  if (absorbed.source) {
+    throw invalid("Un item que viene de una fuente sincronizada no puede unirse dentro de otro: volvería a aparecer al sincronizar.");
+  }
+  return {
+    ...target,
+    authors: target.source || target.authors.length > 0 ? target.authors : absorbed.authors,
+    year: target.source ? target.year : target.year ?? absorbed.year,
+    notes: [target.notes, absorbed.notes].filter(Boolean).join("\n\n"),
+    tags: normalizeTags([...target.tags, ...absorbed.tags]),
+    physical: target.physical.owned ? target.physical : absorbed.physical,
+    updatedAt: now,
+  };
+}
+
 export function normalizeTag(value) {
   const tag = String(value ?? "").replace(/^#+/, "").replace(/\s+/g, " ").trim().toLowerCase();
   if (tag.length > MAX_TAG_LENGTH) {

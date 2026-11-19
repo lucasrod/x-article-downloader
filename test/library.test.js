@@ -270,3 +270,66 @@ test("sincronizar una carpeta real: importa, archiva, sigue movimientos y no pis
 
   await fs.rm(root, { recursive: true, force: true });
 });
+
+// ---------- etapa 3: relaciones y union de items ----------
+
+import { createRelation } from "../src/library/domain/relation.js";
+
+test("relaciones: sin repetidas, simetricas normalizadas y sin ciclos donde hay orden", () => {
+  const make = (existing, fromId, toId, type) => createRelation(existing, { id: `${type}:${fromId}:${toId}`, fromId, toId, type, now: "t" });
+  const ab = make([], "a", "b", "requires");
+  const bc = make([ab], "b", "c", "requires");
+  assert.throws(() => make([ab, bc], "c", "a", "requires"), rejectsWith("invalid"));
+  assert.throws(() => make([ab], "a", "b", "requires"), rejectsWith("conflict"));
+  assert.throws(() => make([], "a", "a", "cites"), rejectsWith("invalid"));
+  assert.throws(() => make([], "a", "b", "inspira"), rejectsWith("invalid"));
+  // Citarse mutuamente es valido; "se relaciona con" no tiene direccion.
+  assert.equal(make([make([], "a", "b", "cites")], "b", "a", "cites").fromId, "b");
+  const related = make([], "z", "a", "related");
+  assert.deepEqual([related.fromId, related.toId], ["a", "z"]);
+  assert.throws(() => make([related], "a", "z", "related"), rejectsWith("conflict"));
+});
+
+test("relaciones persistidas: se leen desde los dos extremos y se van con el item", async () => {
+  const service = setup();
+  const [apostol, practico] = await Promise.all(["Apostol", "Práctico 3"].map((title) => service.registerItem({ kind: "book", title })));
+  await service.relateItems({ fromId: practico.id, toId: apostol.id, type: "requires" });
+  assert.deepEqual((await service.describeItem(practico.id)).relations.map((r) => [r.label, r.other.title]), [["requiere haber leído", "Apostol"]]);
+  assert.deepEqual((await service.describeItem(apostol.id)).relations.map((r) => [r.label, r.other.title]), [["es requisito de", "Práctico 3"]]);
+  const graph = await service.graph();
+  assert.deepEqual([graph.nodes.length, graph.edges.length], [2, 1]);
+  await service.removeItem(practico.id);
+  assert.deepEqual((await service.graph()).edges, []);
+});
+
+test("unir items: el que queda suma archivos, etiquetas, carpetas, listas y relaciones", async () => {
+  const service = setup([article("uno", "1")]);
+  await service.syncSources();
+  const xArticle = await service.findItemBySource("x:status:1");
+  const book = await service.registerItem({ kind: "book", title: "Calculus, Vol. 1", authors: ["Apostol"], physical: { owned: true, location: "estante" } });
+  const pdf = await service.registerItem({ kind: "document", title: "apostol calculus vol1", tags: ["cálculo"], notes: "escaneado" });
+  const other = await service.registerItem({ kind: "notes", title: "Notas" });
+  const folder = await service.createFolder({ name: "Mate" });
+  await service.placeInFolder(folder.id, { itemId: pdf.id });
+  const list = await service.createReadingList({ name: "Semana 1" });
+  await service.addToReadingList(list.id, other.id);
+  await service.addToReadingList(list.id, pdf.id, "capítulo 1");
+  await service.relateItems({ fromId: other.id, toId: pdf.id, type: "requires" });
+  await service.relateItems({ fromId: pdf.id, toId: book.id, type: "related" });
+
+  await assert.rejects(service.mergeItems(book.id, xArticle.id), rejectsWith("invalid"));
+  await assert.rejects(service.mergeItems(book.id, book.id), rejectsWith("invalid"));
+  await service.mergeItems(book.id, pdf.id);
+
+  const snapshot = await service.snapshot();
+  assert.equal(snapshot.items.some((item) => item.id === pdf.id), false);
+  const described = await service.describeItem(book.id);
+  assert.equal(described.item.title, "Calculus, Vol. 1");
+  assert.deepEqual(described.item.tags, ["cálculo"]);
+  assert.equal(described.item.notes, "escaneado");
+  assert.equal(described.item.physical.location, "estante");
+  assert.deepEqual(described.folderIds, [folder.id]);
+  assert.deepEqual(snapshot.lists[0].entries, [{ itemId: other.id, note: "" }, { itemId: book.id, note: "capítulo 1" }]);
+  // La relacion con el propio libro desaparece; la de las notas pasa al libro.
+  assert.deepEqual(described.relations.map((r) => [r.label, r.other.title]), [["es requisito de", "Notas"]]);
+});

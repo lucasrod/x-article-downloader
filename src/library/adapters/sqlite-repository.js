@@ -91,6 +91,17 @@ const MIGRATIONS = [
     PRIMARY KEY (source_id, rel_path)
   );
   `,
+  `
+  CREATE TABLE relations (
+    id TEXT PRIMARY KEY,
+    from_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    to_id TEXT NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    UNIQUE (from_id, to_id, type)
+  );
+  `,
 ];
 
 export function createSqliteRepository(file) {
@@ -255,6 +266,37 @@ export function createSqliteRepository(file) {
 
     async deleteReadingList(id) {
       db.prepare("DELETE FROM reading_lists WHERE id = ?").run(id);
+    },
+
+    // ---------- relaciones ----------
+
+    async listRelations() {
+      return db.prepare("SELECT * FROM relations ORDER BY created_at, id").all().map((row) => ({
+        id: row.id,
+        fromId: row.from_id,
+        toId: row.to_id,
+        type: row.type,
+        note: row.note,
+        createdAt: row.created_at,
+      }));
+    },
+
+    async saveRelations(relations) {
+      const upsert = db.prepare(`
+        INSERT INTO relations (id, from_id, to_id, type, note, created_at) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (id) DO UPDATE SET from_id = excluded.from_id, to_id = excluded.to_id, note = excluded.note`);
+      transaction(() => {
+        for (const relation of relations) {
+          upsert.run(relation.id, relation.fromId, relation.toId, relation.type, relation.note, relation.createdAt);
+        }
+      });
+    },
+
+    async deleteRelations(ids) {
+      const remove = db.prepare("DELETE FROM relations WHERE id = ?");
+      transaction(() => {
+        for (const id of ids) remove.run(id);
+      });
     },
 
     // ---------- carpetas de origen y archivos ----------

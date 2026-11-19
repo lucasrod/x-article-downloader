@@ -1,5 +1,6 @@
 import { DomainError } from "../library/domain/errors.js";
 import { ITEM_KINDS } from "../library/domain/item.js";
+import { RELATION_TYPES } from "../library/domain/relation.js";
 import { KIND_LABELS } from "./library.js";
 import { organization } from "./catalog-search.js";
 
@@ -28,6 +29,7 @@ export function createCatalogRoutes({ service, sources, readJsonBody }) {
       await service.syncSources();
       return {
         kinds: ITEM_KINDS.filter((kind) => kind !== "article").map((value) => ({ value, label: KIND_LABELS[value] })),
+        relation_types: relationTypes(),
         ...organization(await service.snapshot()),
       };
     }
@@ -40,6 +42,28 @@ export function createCatalogRoutes({ service, sources, readJsonBody }) {
         return describe(id);
       }
       if (method === "DELETE" && parts.length === 3) return done(await service.removeItem(id));
+      if (method === "POST" && parts.length === 4 && sub === "merge") {
+        await service.mergeItems(id, (await body()).other_id);
+        return describe(id);
+      }
+    }
+
+    if (resource === "relations") {
+      if (method === "POST" && parts.length === 2) {
+        const input = await body();
+        const relation = await service.relateItems({ fromId: input.from_id, toId: input.to_id, type: input.type, note: input.note });
+        return { id: relation.id };
+      }
+      if (method === "DELETE" && parts.length === 3) return done(await service.unrelate(id));
+    }
+
+    if (resource === "graph" && method === "GET" && parts.length === 2) {
+      const graph = await service.graph();
+      return {
+        nodes: graph.nodes.map((item) => ({ id: item.id, title: item.title, kind: item.kind, kind_label: KIND_LABELS[item.kind] ?? item.kind })),
+        edges: graph.edges.map((relation) => ({ id: relation.id, from: relation.fromId, to: relation.toId, type: relation.type })),
+        types: relationTypes(),
+      };
     }
 
     if (resource === "folders") {
@@ -103,7 +127,7 @@ export function createCatalogRoutes({ service, sources, readJsonBody }) {
   }
 
   async function describe(id) {
-    const { item, folderIds, listIds } = await service.describeItem(id);
+    const { item, folderIds, listIds, relations } = await service.describeItem(id);
     const files = (await sources.describeFiles(id)).map((file) => ({
       sha256: file.sha256,
       name: file.name,
@@ -113,11 +137,26 @@ export function createCatalogRoutes({ service, sources, readJsonBody }) {
       searchable: (file.textChars ?? 0) > 0,
       locations: file.locations,
     }));
-    return { ...itemView(item), folder_ids: folderIds, list_ids: listIds, files };
+    return {
+      ...itemView(item),
+      folder_ids: folderIds,
+      list_ids: listIds,
+      files,
+      relations: relations.map((relation) => ({
+        id: relation.id,
+        type: relation.type,
+        label: relation.label,
+        note: relation.note,
+        other: { id: relation.other.id, title: relation.other.title, kind_label: KIND_LABELS[relation.other.kind] ?? relation.other.kind },
+      })),
+    };
   }
 }
 
 const done = () => ({ ok: true });
+
+const relationTypes = () => Object.entries(RELATION_TYPES)
+  .map(([value, rules]) => ({ value, label: rules.label, inverse: rules.inverse, symmetric: rules.symmetric }));
 
 // Solo pasan al dominio los campos que el cliente mando.
 function itemInput(body) {

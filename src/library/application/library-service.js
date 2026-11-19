@@ -1,5 +1,6 @@
 import { notFound, invalid } from "../domain/errors.js";
-import { createItem, refreshFromSource, reviseItem } from "../domain/item.js";
+import { absorbItem, createItem, refreshFromSource, reviseItem } from "../domain/item.js";
+import { createRelation, relationsOf, repointRelations } from "../domain/relation.js";
 import {
   ancestryIds,
   createFolder,
@@ -15,6 +16,7 @@ import {
   createReadingList,
   moveEntry,
   removeEntry,
+  replaceEntry,
   reviseReadingList,
 } from "../domain/reading-list.js";
 
@@ -67,9 +69,18 @@ export function createLibraryService({ repository, sources = [], newId, now }) {
     // Item con las carpetas y listas que lo referencian.
     async describeItem(id) {
       const item = await requireItem(id);
-      const [folders, lists] = await Promise.all([repository.listFolders(), repository.listReadingLists()]);
+      const [folders, lists, relations, items] = await Promise.all([
+        repository.listFolders(),
+        repository.listReadingLists(),
+        repository.listRelations(),
+        repository.listItems(),
+      ]);
+      const byId = new Map(items.map((candidate) => [candidate.id, candidate]));
       return {
         item,
+        relations: relationsOf(relations, id)
+          .map((relation) => ({ ...relation, other: byId.get(relation.otherId) }))
+          .filter((relation) => relation.other),
         folderIds: folders.filter((folder) => folder.itemIds.includes(id)).map((folder) => folder.id),
         listIds: lists.filter((list) => list.entries.some((entry) => entry.itemId === id)).map((list) => list.id),
       };
@@ -113,6 +124,53 @@ export function createLibraryService({ repository, sources = [], newId, now }) {
 
       if (changed.length > 0) await repository.saveItems(changed);
       return { created, refreshed: changed.length - created };
+    },
+
+    // Une `absorbedId` dentro de `targetId`. Archivos, carpetas, listas y
+    // relaciones del absorbido pasan al que queda; el absorbido desaparece.
+    async mergeItems(targetId, absorbedId) {
+      const merged = absorbItem(await requireItem(targetId), await requireItem(absorbedId), now());
+      const [files, folders, lists, relations] = await Promise.all([
+        repository.listFiles(),
+        repository.listFolders(),
+        repository.listReadingLists(),
+        repository.listRelations(),
+      ]);
+
+      await repository.saveItems([merged]);
+      await repository.saveFiles(files.filter((file) => file.itemId === absorbedId).map((file) => ({ ...file, itemId: targetId })));
+      for (const folder of folders.filter((candidate) => candidate.itemIds.includes(absorbedId))) {
+        await repository.saveFolder(placeInFolder(takeOutOfFolder(folder, { itemId: absorbedId }), { itemId: targetId }));
+      }
+      for (const list of lists.filter((candidate) => candidate.entries.some((entry) => entry.itemId === absorbedId))) {
+        await repository.saveReadingList(replaceEntry(list, absorbedId, targetId, now()));
+      }
+      const { changed, dropped } = repointRelations(relations, absorbedId, targetId);
+      await repository.deleteRelations(dropped);
+      await repository.saveRelations(changed);
+      await repository.deleteItem(absorbedId);
+      return merged;
+    },
+
+    // ---------- relaciones ----------
+
+    async relateItems({ fromId, toId, type, note = "" }) {
+      await requireItem(fromId);
+      await requireItem(toId);
+      const relation = createRelation(await repository.listRelations(), { id: newId(), fromId, toId, type, note, now: now() });
+      await repository.saveRelations([relation]);
+      return relation;
+    },
+
+    async unrelate(relationId) {
+      await repository.deleteRelations([relationId]);
+    },
+
+    // El grafo de conocimiento: los items que tienen alguna relacion y sus aristas.
+    async graph() {
+      const [items, relations] = await Promise.all([repository.listItems(), repository.listRelations()]);
+      const connected = new Set(relations.flatMap((relation) => [relation.fromId, relation.toId]));
+      return { nodes: items.filter((item) => connected.has(item.id)), edges: relations };
     },
 
     // ---------- carpetas ----------

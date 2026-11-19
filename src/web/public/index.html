@@ -321,6 +321,36 @@
   .doc .notes { white-space: pre-line; }
   .doc .hint { font: 14px var(--sans); color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; margin-top: 24px; }
   .btn.danger { color: var(--err); }
+  .rel-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 14px; }
+  .rel-list li { display: flex; align-items: baseline; gap: 6px; padding: 4px 0; border-top: 1px solid var(--border); }
+  .rel-list li:first-child { border-top: 0; }
+  .rel-list .how { color: var(--muted); font-size: 12px; flex: none; }
+  .rel-list a { flex: 1; min-width: 0; text-decoration: none; }
+  .rel-list a:hover { text-decoration: underline; }
+  .rel-list .icon-btn { font-size: 16px; padding: 0 6px; }
+  .rel-add { display: flex; flex-direction: column; gap: 6px; }
+  .rel-add select { font-size: 13px; padding: 5px 8px; }
+  .picker { display: flex; flex-direction: column; gap: 2px; }
+  .picker button { text-align: left; border: 0; background: none; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .picker button:hover, .picker button:focus-visible { background: var(--surface-2); }
+  .picker button small { color: var(--muted); display: block; }
+  .graph-view { max-width: 1100px; }
+  .graph-view h1 { margin: 0 0 6px; font: 600 26px/1.2 var(--serif); }
+  .graph-view .lead { color: var(--muted); margin: 0 0 14px; }
+  .graph-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .graph-box svg { display: block; width: 100%; height: min(70vh, 640px); }
+  .graph-box .node circle { fill: var(--surface); stroke: var(--text); stroke-width: 1.5; }
+  .graph-box .node:hover circle, .graph-box .node:focus-visible circle { fill: var(--accent-soft); stroke: var(--accent); }
+  .graph-box .node text { font: 12px var(--sans); fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+  .graph-box .edge { fill: none; stroke-width: 1.6; }
+  .graph-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+  .graph-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .graph-legend svg { width: 34px; height: 10px; }
+  :root { --rel-requires: #b3261e; --rel-continues: #1d5bd8; --rel-part-of: #2f7a3f; --rel-cites: #7a4fb5; --rel-related: #6b675e; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --rel-requires: #ff8a80; --rel-continues: #7ea6ff; --rel-part-of: #7fcf8d; --rel-cites: #c3a3f0; --rel-related: #9b978c; }
+  }
+  :root[data-theme="dark"] { --rel-requires: #ff8a80; --rel-continues: #7ea6ff; --rel-part-of: #7fcf8d; --rel-cites: #c3a3f0; --rel-related: #9b978c; }
   .pdf-frame { width: 100%; height: 84vh; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-top: 16px; display: block; }
   .item-head { max-width: none; padding: 24px 28px; }
   .item-head h1 { font-size: 26px; }
@@ -375,6 +405,7 @@
     <span class="brand-mark">X</span>
     <strong>Article Library</strong>
   </a>
+  <a class="btn" href="#/grafo">Grafo</a>
   <a class="btn dark" href="#/agregar" id="add-link">
     + Agregar <span class="count-pill" id="jobs-pill" hidden title="Descargas en curso"></span>
   </a>
@@ -424,6 +455,7 @@
     </section>
     <section id="reader-view" hidden></section>
     <section id="item-view" hidden></section>
+    <section class="graph-view" id="graph-view" hidden></section>
     <section class="add" id="add-view" hidden>
       <p class="eyebrow">Tus bookmarks, tu biblioteca</p>
       <h1>Descargá los artículos de X que guardaste en bookmarks</h1>
@@ -951,6 +983,7 @@ function renderFacets() {
 
 function setOrganization(data) {
   state.org = { folders: data.folders, lists: data.lists, all_tags: data.all_tags, unfiled: data.unfiled };
+  if (data.relation_types) state.relationTypes = data.relation_types;
   $("all-tags").innerHTML = data.all_tags.map((entry) => `<option value="${escapeHtml(entry.tag)}"></option>`).join("");
 }
 
@@ -1211,6 +1244,210 @@ function commitTagInput(input) {
   organizerChange(input.closest("[data-org-item]"), { addTag: tag });
 }
 
+// ---------- relaciones entre items ----------
+
+const itemHref = (id) => `#/i/${encodeURIComponent(id)}`;
+
+function relationsHtml(item) {
+  const rows = item.relations.map((relation) => `<li>
+      <span class="how">${escapeHtml(relation.label)}</span>
+      <a href="${itemHref(relation.other.id)}">${escapeHtml(relation.other.title)}</a>
+      <button class="icon-btn" type="button" data-remove-relation="${escapeHtml(relation.id)}" aria-label="Quitar relación con ${escapeHtml(relation.other.title)}">×</button>
+    </li>`).join("");
+  // Cada tipo con direccion se ofrece en sus dos sentidos, leido desde este item.
+  const options = (state.relationTypes ?? []).flatMap((type) => type.symmetric
+    ? [`<option value="${type.value}:out">Este item ${escapeHtml(type.label)}…</option>`]
+    : [`<option value="${type.value}:out">Este item ${escapeHtml(type.label)}…</option>`,
+       `<option value="${type.value}:in">Este item ${escapeHtml(type.inverse)}…</option>`]).join("");
+  return `<div data-rel-item="${escapeHtml(item.id)}">
+    <ul class="rel-list">${rows || '<li class="empty">Sin relaciones todavía.</li>'}</ul>
+    <div class="rel-add">
+      <select data-rel-type aria-label="Tipo de relación">${options}</select>
+      <input type="text" data-item-search placeholder="Buscar el otro item…" aria-label="Buscar el item a relacionar" autocomplete="off">
+      <div class="picker" data-picker></div>
+    </div>
+  </div>`;
+}
+
+// Buscador de items reutilizable: un input [data-item-search] seguido de [data-picker].
+let pickerTimer = null;
+function searchItemsFor(input) {
+  clearTimeout(pickerTimer);
+  pickerTimer = setTimeout(async () => {
+    const picker = input.parentElement.querySelector("[data-picker]");
+    const query = input.value.trim();
+    if (!query) {
+      picker.innerHTML = "";
+      return;
+    }
+    const exclude = input.closest("[data-rel-item], [data-merge-into]");
+    const ownId = exclude?.dataset.relItem ?? exclude?.dataset.mergeInto;
+    const data = await api(`/api/library?q=${encodeURIComponent(query)}`);
+    if (input.value.trim() !== query) return;
+    const results = data.results.filter((result) => result.item_id !== ownId).slice(0, 6);
+    picker.innerHTML = results.map((result) => `<button type="button" data-pick="${escapeHtml(result.item_id)}" data-pick-title="${escapeHtml(result.title)}" data-pick-source="${result.has_source}">
+        ${escapeHtml(result.title)}<small>${escapeHtml([KIND_LABELS[result.kind] ?? result.kind, result.author_name, result.year].filter(Boolean).join(" · "))}</small>
+      </button>`).join("") || '<div class="empty">Sin coincidencias.</div>';
+  }, 180);
+}
+
+async function refreshRelations(container) {
+  const item = await api(`/api/items/${encodeURIComponent(container.dataset.relItem)}`);
+  container.outerHTML = relationsHtml(item);
+}
+
+async function pickItem(button) {
+  const otherId = button.dataset.pick;
+  const relations = button.closest("[data-rel-item]");
+  if (relations) {
+    const [type, direction] = relations.querySelector("[data-rel-type]").value.split(":");
+    const ownId = relations.dataset.relItem;
+    try {
+      await api("/api/relations", jsonInit("POST", direction === "in"
+        ? { from_id: otherId, to_id: ownId, type }
+        : { from_id: ownId, to_id: otherId, type }));
+    } catch (error) {
+      return toast(error.message);
+    }
+    return refreshRelations(relations);
+  }
+
+  const merge = button.closest("[data-merge-into]");
+  if (merge) {
+    if (button.dataset.pickSource === "true") {
+      return toast("Un artículo de X no se puede unir dentro de otro item.");
+    }
+    const sure = await ask({
+      title: `Unir “${button.dataset.pickTitle}” dentro de este item`,
+      message: "Este item se queda con sus archivos, etiquetas, carpetas, listas y relaciones. El otro desaparece y no se puede deshacer.",
+      ok: "Unir", danger: true,
+    });
+    if (!sure) return;
+    try {
+      await api(`/api/items/${encodeURIComponent(merge.dataset.mergeInto)}/merge`, jsonInit("POST", { other_id: otherId }));
+      toast("Items unidos");
+      renderItem(merge.dataset.mergeInto);
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+}
+
+// ---------- grafo ----------
+
+const GRAPH_DASH = { requires: "", continues: "7 4", "part-of": "2 4", cites: "10 3 2 3", related: "" };
+
+// Disposicion por fuerzas, chica y sin dependencias: los nodos se repelen,
+// las aristas los acercan y todo tiende al centro.
+function layoutGraph(nodes, edges) {
+  const k = 150;
+  const position = new Map(nodes.map((node, index) => {
+    const angle = (2 * Math.PI * index) / nodes.length;
+    return [node.id, { x: Math.cos(angle) * k * 1.5, y: Math.sin(angle) * k * 1.5 }];
+  }));
+  for (let step = 0; step < 300; step += 1) {
+    const move = new Map(nodes.map((node) => [node.id, { x: 0, y: 0 }]));
+    for (let i = 0; i < nodes.length; i += 1) {
+      for (let j = i + 1; j < nodes.length; j += 1) {
+        const a = position.get(nodes[i].id);
+        const b = position.get(nodes[j].id);
+        const dx = a.x - b.x || 0.01;
+        const dy = a.y - b.y || 0.01;
+        const distance = Math.hypot(dx, dy);
+        const force = (k * k) / distance;
+        move.get(nodes[i].id).x += (dx / distance) * force;
+        move.get(nodes[i].id).y += (dy / distance) * force;
+        move.get(nodes[j].id).x -= (dx / distance) * force;
+        move.get(nodes[j].id).y -= (dy / distance) * force;
+      }
+    }
+    for (const edge of edges) {
+      const a = position.get(edge.from);
+      const b = position.get(edge.to);
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const distance = Math.hypot(dx, dy) || 0.01;
+      const force = (distance * distance) / k;
+      move.get(edge.from).x -= (dx / distance) * force;
+      move.get(edge.from).y -= (dy / distance) * force;
+      move.get(edge.to).x += (dx / distance) * force;
+      move.get(edge.to).y += (dy / distance) * force;
+    }
+    const heat = 40 * (1 - step / 300) + 1;
+    for (const node of nodes) {
+      const at = position.get(node.id);
+      const delta = move.get(node.id);
+      delta.x -= at.x * 0.05;
+      delta.y -= at.y * 0.05;
+      const length = Math.hypot(delta.x, delta.y) || 0.01;
+      at.x += (delta.x / length) * Math.min(length, heat);
+      at.y += (delta.y / length) * Math.min(length, heat);
+    }
+  }
+  return position;
+}
+
+async function renderGraph() {
+  const view = $("graph-view");
+  let graph;
+  try {
+    graph = await api("/api/graph");
+  } catch (error) {
+    view.innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  const head = `<h1>Grafo de conocimiento</h1>
+    <p class="lead">Los items que conectaste entre sí. Tocá uno para abrirlo.</p>`;
+  if (graph.edges.length === 0) {
+    view.innerHTML = `${head}<div class="graph-box"><p class="no-results">Todavía no hay relaciones.<br>Abrí un item y usá “Relaciones” para conectarlo con otro: qué requiere, de qué es parte, a quién cita.</p></div>`;
+    return;
+  }
+
+  const position = layoutGraph(graph.nodes, graph.edges);
+  const radius = 9;
+  const xs = [...position.values()].map((at) => at.x);
+  const ys = [...position.values()].map((at) => at.y);
+  const pad = 120;
+  const box = [Math.min(...xs) - pad, Math.min(...ys) - pad / 2, Math.max(...xs) - Math.min(...xs) + pad * 2, Math.max(...ys) - Math.min(...ys) + pad];
+  const types = new Map(graph.types.map((type) => [type.value, type]));
+
+  const edges = graph.edges.map((edge) => {
+    const a = position.get(edge.from);
+    const b = position.get(edge.to);
+    const distance = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    // La linea termina en el borde del circulo para que la flecha se vea.
+    const endX = b.x - ((b.x - a.x) / distance) * (radius + 3);
+    const endY = b.y - ((b.y - a.y) / distance) * (radius + 3);
+    const type = types.get(edge.type);
+    return `<line class="edge" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${endX.toFixed(1)}" y2="${endY.toFixed(1)}"
+      stroke="var(--rel-${edge.type})" stroke-dasharray="${GRAPH_DASH[edge.type] ?? ""}" ${type?.symmetric ? "" : `marker-end="url(#arrow-${edge.type})"`}>
+      <title>${escapeHtml(type?.label ?? edge.type)}</title></line>`;
+  }).join("");
+  const nodes = graph.nodes.map((node) => {
+    const at = position.get(node.id);
+    const label = node.title.length > 32 ? `${node.title.slice(0, 31)}…` : node.title;
+    return `<a class="node" href="${itemHref(node.id)}" aria-label="${escapeHtml(`${node.title} (${node.kind_label})`)}">
+      <title>${escapeHtml(`${node.title} · ${node.kind_label}`)}</title>
+      <circle cx="${at.x.toFixed(1)}" cy="${at.y.toFixed(1)}" r="${radius}"></circle>
+      <text x="${at.x.toFixed(1)}" y="${(at.y + radius + 15).toFixed(1)}" text-anchor="middle">${escapeHtml(label)}</text>
+    </a>`;
+  }).join("");
+  const markers = graph.types.filter((type) => !type.symmetric).map((type) =>
+    `<marker id="arrow-${type.value}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--rel-${type.value})"></path></marker>`).join("");
+  const used = new Set(graph.edges.map((edge) => edge.type));
+  const legend = graph.types.filter((type) => used.has(type.value)).map((type) =>
+    `<span><svg viewBox="0 0 34 10" aria-hidden="true"><line x1="0" y1="5" x2="34" y2="5" stroke="var(--rel-${type.value})" stroke-width="2" stroke-dasharray="${GRAPH_DASH[type.value] ?? ""}"></line></svg>${escapeHtml(type.label)}${type.symmetric ? "" : " →"}</span>`).join("");
+
+  view.innerHTML = `${head}
+    <div class="graph-box">
+      <svg viewBox="${box.map((value) => value.toFixed(0)).join(" ")}" role="img" aria-label="Grafo con ${graph.nodes.length} items y ${graph.edges.length} relaciones">
+        <defs>${markers}</defs>${edges}${nodes}
+      </svg>
+      <div class="graph-legend">${legend}</div>
+    </div>`;
+}
+
 // Acciones de una fila dentro de una lista de lectura.
 async function listRowAction(row, button) {
   const listId = currentParams().get("list");
@@ -1281,6 +1518,15 @@ document.addEventListener("click", (event) => {
   if (chip) return state.chipActions[Number(chip.dataset.chip)]();
 
   if (target.closest("[data-close-dialog]")) return target.closest("dialog").close();
+  const pick = target.closest("[data-pick]");
+  if (pick) return pickItem(pick);
+  const removeRelation = target.closest("[data-remove-relation]");
+  if (removeRelation) {
+    const container = removeRelation.closest("[data-rel-item]");
+    return api(`/api/relations/${encodeURIComponent(removeRelation.dataset.removeRelation)}`, { method: "DELETE" })
+      .catch((error) => toast(error.message))
+      .then(() => refreshRelations(container));
+  }
   if (target.closest("[data-nav-all]")) return navigateTo(null);
   const navFolder = target.closest("[data-nav-folder]");
   if (navFolder) return navigateTo("folder", navFolder.dataset.navFolder);
@@ -1329,6 +1575,7 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.matches("[data-item-search]")) return searchItemsFor(event.target);
   if (event.target.matches("[data-author-search]")) {
     state.authorFilter = event.target.value;
     renderFacets();
@@ -1627,6 +1874,14 @@ async function renderItem(id) {
       <div class="panel">
         ${fileBox}
         <div class="box"><h3>Organizar</h3>${organizerHtml(item)}</div>
+        <div class="box"><h3>Relaciones</h3>${relationsHtml(item)}</div>
+        <div class="box" data-merge-into="${escapeHtml(item.id)}"><h3>Unir con otro item</h3>
+          <p class="summary">Si este material está repetido (por ejemplo, un libro que registraste a mano y su PDF), buscá el otro: este se queda con todo y el otro desaparece.</p>
+          <div class="rel-add">
+            <input type="text" data-item-search placeholder="Buscar el item repetido…" aria-label="Buscar el item a unir" autocomplete="off">
+            <div class="picker" data-picker></div>
+          </div>
+        </div>
         <div class="box"><h3>Datos</h3>
           <form class="item-form" id="edit-item">
             ${itemFieldsHtml(item)}
@@ -1979,6 +2234,7 @@ async function renderReader(slug) {
           ${summary.status_url ? `<button class="btn" id="refetch" type="button">${summary.reply_count ? "Volver a descargar con comentarios" : "Descargar comentarios"}</button>` : ""}
         </div>
         <div class="box"><h3>Organizar</h3><div id="reader-organizer"><div class="empty">Cargando…</div></div></div>
+        <div class="box"><h3>Relaciones</h3><div id="reader-relations"></div></div>
         ${renderSignals(signals)}
         <div class="box"><h3>Archivos</h3>
           <ul class="files">${summary.files.map((file) => `<li>
@@ -1992,7 +2248,9 @@ async function renderReader(slug) {
   if (data.item_id) {
     Promise.all([api(`/api/items/${encodeURIComponent(data.item_id)}`), refreshOrganization()])
       .then(([item]) => {
-        if (currentSlug() === slug) $("reader-organizer").innerHTML = organizerHtml(item);
+        if (currentSlug() !== slug) return;
+        $("reader-organizer").innerHTML = organizerHtml(item);
+        $("reader-relations").innerHTML = relationsHtml(item);
       })
       .catch((error) => { $("reader-organizer").innerHTML = `<p class="form-error">${escapeHtml(error.message)}</p>`; });
   } else {
@@ -2031,7 +2289,7 @@ let lastView = null;
 function route() {
   const slug = currentSlug();
   const itemId = currentItemId();
-  const view = slug ? "reader" : itemId ? "item" : location.hash === "#/agregar" ? "add" : "library";
+  const view = slug ? "reader" : itemId ? "item" : location.hash === "#/agregar" ? "add" : location.hash === "#/grafo" ? "graph" : "library";
   // Los filtros cambian el hash; solo cerramos paneles al pasar de vista.
   if (view !== lastView) closeOverlays();
   document.body.classList.toggle("no-filters", view !== "library");
@@ -2039,7 +2297,14 @@ function route() {
   $("reader-view").hidden = view !== "reader";
   $("add-view").hidden = view !== "add";
   $("item-view").hidden = view !== "item";
+  $("graph-view").hidden = view !== "graph";
 
+  if (view === "graph") {
+    window.scrollTo(0, 0);
+    lastView = "graph";
+    renderGraph();
+    return;
+  }
   if (view === "add") {
     window.scrollTo(0, 0);
     lastView = "add";
@@ -2071,6 +2336,7 @@ window.addEventListener("scroll", () => {
 
 loadSyncSettings();
 loadSources().catch(() => {});
+refreshOrganization().catch(() => {});
 $("sync-limit").disabled = !$("sync-limit-on").checked;
 connectEvents();
 route();

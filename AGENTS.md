@@ -29,6 +29,8 @@ Mantener una pipeline X-first:
 - Una carpeta de origen tiene politica `archive` (copia en `./library/store/<aa>/<sha256>.pdf`) o `reference` (solo indice). Sus subcarpetas se reflejan como carpetas de biblioteca solo en la primera sincronizacion.
 - Los PDFs sincronizados son items sin fuente: titulo, tipo y autores los corrige el usuario. Un item eliminado deja su archivo marcado como descartado y no vuelve a importarse.
 - `pdftotext` es opcional: sin el, los PDFs entran igual pero no son buscables por contenido.
+- Una Relacion es una arista con tipo entre dos items (`domain/relation.js`): requiere, continua, es parte de, cita, se relaciona con. Los tipos que expresan orden no admiten ciclos; "se relaciona con" no tiene direccion. El grafo son los items con alguna relacion.
+- Unir dos items conserva uno y le pasa archivos, etiquetas, carpetas, listas y relaciones del otro. Un item con fuente no puede ser el absorbido.
 - El catalogo se guarda en `./library/library.sqlite` (o `LIBRARY_DB`). `article.json` sigue siendo la verdad del contenido de cada articulo.
 - No mezclar awareness social con el renderer Markdown.
 - Los comentarios por defecto se recolectan best-effort desde browser, no desde la API paga de X.

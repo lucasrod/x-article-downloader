@@ -19,6 +19,9 @@
  * @property {(id: string) => Promise<object|null>} getReadingList
  * @property {(list: object) => Promise<void>} saveReadingList
  * @property {(id: string) => Promise<void>} deleteReadingList
+ * @property {() => Promise<object[]>} listRelations
+ * @property {(relations: object[]) => Promise<void>} saveRelations
+ * @property {(ids: string[]) => Promise<void>} deleteRelations
  * @property {() => Promise<object[]>} listSources
  * @property {(source: object) => Promise<void>} saveSource
  * @property {(id: string) => Promise<void>} deleteSource  borra tambien sus ubicaciones

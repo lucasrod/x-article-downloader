@@ -44,6 +44,16 @@ export function moveEntry(list, itemId, index, now) {
   return { ...list, entries, updatedAt: now };
 }
 
+// Cambia un item por otro conservando la posicion. Si el nuevo ya estaba en la
+// lista, el viejo simplemente se quita.
+export function replaceEntry(list, itemId, replacementId, now) {
+  if (list.entries.some((entry) => entry.itemId === replacementId)) {
+    return removeEntry(list, itemId, now);
+  }
+  const entries = list.entries.map((entry) => entry.itemId === itemId ? { ...entry, itemId: replacementId } : entry);
+  return { ...list, entries, updatedAt: now };
+}
+
 export function annotateEntry(list, itemId, note, now) {
   const at = requireEntryIndex(list, itemId);
   const entries = list.entries.map((entry, index) => index === at ? { ...entry, note: String(note ?? "").trim() } : entry);
